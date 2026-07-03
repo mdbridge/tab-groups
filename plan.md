@@ -22,7 +22,7 @@ machine).
   - [x] Phase 4 -- Display real tab groups on the list page
   - [x] Phase 5 -- Recall a tab group
   - [x] Phase 6 -- Export the list to a file
-  - [ ] Phase 7 -- Import a list from a file
+  - [x] Phase 7 -- Import a list from a file
   - [ ] Phase 8 -- Polish: styling, README, edge cases
 
 
@@ -179,14 +179,14 @@ Export writes a file interactively.
 
 Goal: the Import link replaces the list from a user-chosen file.
 
-  - [ ] Implement `parse(text) -> groups`, lenient per the spec (missing
+  - [x] Implement `parse(text) -> groups`, lenient per the spec (missing
         or unparseable `Time created:` -> import time; url is the first
         token, title is the remainder; blank lines separate groups).
-  - [ ] `content.js`: Import uses `showOpenFilePicker` (fallback:
+  - [x] `content.js`: Import uses `showOpenFilePicker` (fallback:
         `<input type="file">`), reads the file, and if the current list
         is non-empty asks the user to confirm before replacing it.
-  - [ ] Replace the stored list with the parsed groups.
-  - [ ] RED/GREEN test: `parse(serialize(groups))` round-trips; test
+  - [x] Replace the stored list with the parsed groups.
+  - [x] RED/GREEN test: `parse(serialize(groups))` round-trips; test
         lenient parsing of a hand-edited (bare-URL, odd-whitespace)
         sample.
 

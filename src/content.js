@@ -51,7 +51,8 @@ function render(groups) {
   toolbar.appendChild(exportLink);
 
   const importLink = makeToolbarLink('import-link', 'Import');
-  toolbar.appendChild(importLink); // wired up in Phase 7
+  importLink.addEventListener('click', doImport);
+  toolbar.appendChild(importLink);
 
   root.appendChild(toolbar);
 
@@ -152,6 +153,53 @@ async function doExport() {
     }
   }
   downloadTextFile(filename, text);
+}
+
+// Imports a list from a user-chosen file, replacing the current list.
+// If the current list is non-empty, the user is asked to confirm first.
+async function doImport() {
+  let text;
+  try {
+    text = await pickFileText();
+  } catch (e) {
+    if (e.name === 'AbortError') return; // user cancelled the dialog
+    return;
+  }
+  if (text == null) return;
+
+  const existing = await chrome.runtime.sendMessage({ action: 'getGroups' });
+  const count = existing?.groups?.length ?? 0;
+  if (count > 0) {
+    const s = count === 1 ? '' : 's';
+    if (!window.confirm(`Replace the current ${count} tab group${s} with the imported file?`)) {
+      return;
+    }
+  }
+
+  const response = await chrome.runtime.sendMessage({ action: 'importText', text });
+  render(response?.groups || []);
+}
+
+// Reads a text file the user picks, via the File System Access API where
+// available, otherwise a plain file input.
+async function pickFileText() {
+  if (window.showOpenFilePicker) {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }],
+    });
+    const file = await handle.getFile();
+    return file.text();
+  }
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,text/plain';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      resolve(file ? file.text() : null);
+    });
+    input.click();
+  });
 }
 
 function downloadTextFile(filename, text) {
