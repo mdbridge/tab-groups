@@ -38,6 +38,48 @@ test('recall opens a new window with the tabs in order and removes the group', a
   expect(result.remaining).toHaveLength(0);
 });
 
+// A URL that Chrome refuses in an API navigation (javascript:) makes the
+// bulk windows.create throw; recall should fall back to opening tabs one
+// at a time, skip the bad URL, leave no stray tab, and still remove the
+// group.
+test('recall falls back and skips a URL that aborts the bulk open', async ({
+  serviceWorker,
+}) => {
+  const good = 'data:text/plain,good';
+  const bad = 'javascript:void(0)';
+
+  const result = await serviceWorker.evaluate(async ({ good, bad }) => {
+    await saveGroups([
+      { created: 777, tabs: [{ title: 'good', url: good }, { title: 'bad', url: bad }] },
+    ]);
+
+    const beforeIds = (await chrome.windows.getAll()).map((w) => w.id);
+    await recallGroup(777);
+    const newWins = (await chrome.windows.getAll()).filter((w) => !beforeIds.includes(w.id));
+
+    async function settledUrls(windowId) {
+      for (let i = 0; i < 50; i++) {
+        const tabs = await chrome.tabs.query({ windowId });
+        if (tabs.length >= 1 && tabs.every((t) => t.url)) {
+          return tabs.sort((a, b) => a.index - b.index).map((t) => t.url);
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return (await chrome.tabs.query({ windowId })).map((t) => t.url);
+    }
+
+    return {
+      newWindowCount: newWins.length,
+      urls: newWins.length === 1 ? await settledUrls(newWins[0].id) : [],
+      remaining: await getGroups(),
+    };
+  }, { good, bad });
+
+  expect(result.newWindowCount).toBe(1);
+  expect(result.urls).toEqual([good]);
+  expect(result.remaining).toHaveLength(0);
+});
+
 test('clicking Recall opens the tabs and removes the group from the list', async ({
   context,
   serviceWorker,

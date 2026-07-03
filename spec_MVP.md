@@ -150,14 +150,13 @@ importing the list from a file.
     the current list is non-empty, the user is asked to confirm before
     it is replaced.
 
-The save and open dialogs are provided by the File System Access API
-(`showSaveFilePicker` and `showOpenFilePicker`), called directly from
-the content script on the list page; this needs no extra permission and
-keeps the file I/O in the normal page rather than the service worker.
-If the API is unavailable, export falls back to a normal download of the
-text (a blob URL and a synthesized `<a download>` click, needing no
-extra permission) and import falls back to a plain `<input type="file">`
-picker.
+Export is performed by the background service worker via
+`chrome.downloads.download` with `saveAs: true`, which shows a native
+"Save As" dialog reliably in both Chrome and Edge (this needs the
+`downloads` permission).  Import uses a plain `<input type="file">`
+picker in the content script.  The File System Access API
+(`showSaveFilePicker` / `showOpenFilePicker`) is deliberately avoided:
+it is not dependable from a content script and silently fails in Edge.
 
 Typing Escape closes this page.
 

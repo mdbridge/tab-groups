@@ -69,7 +69,6 @@ function render(groups) {
   }
 }
 
-// Export and Import are wired up in later phases.
 function makeToolbarLink(id, text) {
   const a = document.createElement('a');
   a.id = id;
@@ -122,50 +121,19 @@ function renderGroup(group) {
   return section;
 }
 
-// Date stamp for the default export filename: MM-DD-YYYY (year last;
-// dashes, since filenames cannot contain slashes).
-function todayStamp() {
-  const d = new Date();
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${d.getFullYear()}`;
-}
-
-// Exports the list to a user-chosen file.  Primary path is the File
-// System Access API, which shows a native save dialog; falls back to a
-// normal download where that API is unavailable.
-async function doExport() {
-  const response = await chrome.runtime.sendMessage({ action: 'exportText' });
-  const text = response?.text ?? '';
-  const filename = `tab-groups-${todayStamp()}.txt`;
-
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: filename,
-        types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(text);
-      await writable.close();
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return; // user cancelled the dialog
-      // Otherwise fall through to the download fallback.
-    }
-  }
-  downloadTextFile(filename, text);
+// Exports the list.  The background service worker runs the download
+// with a "Save As" dialog (chrome.downloads), which works reliably in
+// both Chrome and Edge -- the File System Access API is not dependable
+// from a content script (e.g., it silently fails in Edge).
+function doExport() {
+  chrome.runtime.sendMessage({ action: 'export' });
 }
 
 // Imports a list from a user-chosen file, replacing the current list.
 // If the current list is non-empty, the user is asked to confirm first.
 async function doImport() {
-  let text;
-  try {
-    text = await pickFileText();
-  } catch (e) {
-    if (e.name === 'AbortError') return; // user cancelled the dialog
-    return;
-  }
-  if (text == null) return;
+  const text = await pickFileText();
+  if (text == null) return; // no file chosen
 
   const existing = await chrome.runtime.sendMessage({ action: 'getGroups' });
   const count = existing?.groups?.length ?? 0;
@@ -180,16 +148,9 @@ async function doImport() {
   render(response?.groups || []);
 }
 
-// Reads a text file the user picks, via the File System Access API where
-// available, otherwise a plain file input.
-async function pickFileText() {
-  if (window.showOpenFilePicker) {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }],
-    });
-    const file = await handle.getFile();
-    return file.text();
-  }
+// Reads a text file the user picks, using a plain file input (works in
+// all browsers, unlike the File System Access API from a content script).
+function pickFileText() {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -198,20 +159,9 @@ async function pickFileText() {
       const file = input.files?.[0];
       resolve(file ? file.text() : null);
     });
+    input.addEventListener('cancel', () => resolve(null));
     input.click();
   });
-}
-
-function downloadTextFile(filename, text) {
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 function renderTab(tab) {

@@ -39,3 +39,31 @@ test('serialize of an empty list is empty', async ({ serviceWorker }) => {
   const text = await serviceWorker.evaluate(() => serializeGroups([]));
   expect(text).toBe('');
 });
+
+test('export downloads the serialized list via a Save As dialog', async ({
+  serviceWorker,
+}) => {
+  const call = await serviceWorker.evaluate(async () => {
+    await saveGroups([
+      { created: 0, tabs: [{ title: 'A', url: 'https://a.example/' }] },
+    ]);
+    // Stub the download so no real file/dialog is triggered; capture args.
+    const calls = [];
+    const orig = chrome.downloads.download;
+    chrome.downloads.download = (opts) => {
+      calls.push(opts);
+      return Promise.resolve(1);
+    };
+    try {
+      await exportDownload();
+    } finally {
+      chrome.downloads.download = orig;
+    }
+    return calls[0];
+  });
+
+  expect(call.saveAs).toBe(true);
+  expect(call.filename).toMatch(/^tab-groups-\d\d-\d\d-\d{4}\.txt$/);
+  const decoded = decodeURIComponent(call.url.replace('data:text/plain;charset=utf-8,', ''));
+  expect(decoded).toContain('https://a.example/');
+});

@@ -52,6 +52,21 @@ function formatCreated(ms) {
          `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 
+// Default export filename: tab-groups-MM-DD-YYYY.txt (year last; dashes,
+// since filenames cannot contain slashes).
+function exportFilename() {
+  const d = new Date();
+  return `tab-groups-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}-${d.getFullYear()}.txt`;
+}
+
+// Downloads the serialized list.  saveAs shows a native "Save As" dialog
+// in both Chrome and Edge.
+async function exportDownload() {
+  const text = serializeGroups(await getGroups());
+  const url = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+  await chrome.downloads.download({ url, filename: exportFilename(), saveAs: true });
+}
+
 function serializeGroups(groups) {
   if (groups.length === 0) return '';
   const blocks = groups.map((group) => {
@@ -129,9 +144,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     getGroups().then((groups) => sendResponse({ groups }));
     return true; // keep the message port open for the async response
   }
-  if (message.action === 'exportText') {
-    getGroups().then((groups) => sendResponse({ text: serializeGroups(groups) }));
-    return true; // keep the message port open for the async response
+  if (message.action === 'export') {
+    exportDownload();
   }
   if (message.action === 'importText') {
     (async () => {
@@ -160,26 +174,30 @@ async function recallGroup(created) {
   const group = groups.find((g) => g.created === created);
   if (!group) return;
 
-  // Start from an empty window, then add each tab so one bad URL cannot
-  // abort the whole window creation.
-  const win = await chrome.windows.create({ focused: true });
-  const placeholderTabId = win.tabs?.[0]?.id;
-
-  let opened = 0;
-  for (const tab of group.tabs) {
-    try {
-      await chrome.tabs.create({ windowId: win.id, url: tab.url, active: false });
-      opened++;
-    } catch {
-      // Skip URLs that cannot be opened.
+  const urls = group.tabs.map((t) => t.url);
+  try {
+    // Open all tabs at once so the window has no leftover new-tab page.
+    await chrome.windows.create({ url: urls, focused: true });
+  } catch {
+    // A URL was rejected, which aborts the whole create; fall back to
+    // adding tabs one at a time from an empty window, skipping any that
+    // fail, then drop the placeholder new-tab page.
+    const win = await chrome.windows.create({ focused: true });
+    const placeholderTabId = win.tabs?.[0]?.id;
+    let opened = 0;
+    for (const url of urls) {
+      try {
+        await chrome.tabs.create({ windowId: win.id, url, active: false });
+        opened++;
+      } catch {
+        // Skip URLs that cannot be opened.
+      }
     }
-  }
-
-  // Drop the placeholder new-tab page once real tabs exist.
-  if (opened > 0 && placeholderTabId != null) {
-    try {
-      await chrome.tabs.remove(placeholderTabId);
-    } catch {}
+    if (opened > 0 && placeholderTabId != null) {
+      try {
+        await chrome.tabs.remove(placeholderTabId);
+      } catch {}
+    }
   }
 
   await removeGroup(created);
