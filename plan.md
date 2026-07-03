@@ -17,7 +17,7 @@ machine).
 
   - [x] Phase 0 -- Prerequisites / one-time setup
   - [x] Phase 1 -- Skeleton extension: shortcut opens a static page
-  - [ ] Phase 2 -- Persistent data model (storage layer)
+  - [x] Phase 2 -- Persistent data model (storage layer)
   - [ ] Phase 3 -- Archive the current window
   - [ ] Phase 4 -- Display real tab groups on the list page
   - [ ] Phase 5 -- Recall a tab group
@@ -81,11 +81,11 @@ ran; the test passes.
 Goal: a small, tested storage layer for the tab groups list in
 `chrome.storage.local`.
 
-  - [ ] Decide the storage key (e.g., `tabGroups`) and shape:
+  - [x] Decide the storage key (e.g., `tabGroups`) and shape:
         `[{ created: <epoch ms>, tabs: [{ title, url }, ...] }, ...]`.
-  - [ ] `background.js` helpers: `getGroups()`, `saveGroups(groups)`,
+  - [x] `background.js` helpers: `getGroups()`, `saveGroups(groups)`,
         `prependGroup(group)`, `removeGroup(created)` (or by index).
-  - [ ] RED/GREEN test: write groups, read them back, confirm they
+  - [x] RED/GREEN test: write groups, read them back, confirm they
         survive a service-worker reload / new context (persistence).
 
 Done when: groups round-trip through storage and persist; test passes.
