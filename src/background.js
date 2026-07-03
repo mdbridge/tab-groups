@@ -50,6 +50,7 @@ async function getListPageUrl() {
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'open-list') openList();
+  if (command === 'archive-window') archiveWindow();
 });
 
 async function openList() {
@@ -59,4 +60,44 @@ async function openList() {
     return;
   }
   chrome.tabs.create({ url: listPageUrl });
+}
+
+// True for pages this extension itself owns -- its list page and any of
+// its chrome-extension:// pages (e.g., setup-required.html) -- which
+// should never be archived.
+function isOwnUrl(url, listPageUrl) {
+  if (!url) return false;
+  if (url.startsWith(chrome.runtime.getURL(''))) return true;
+  if (listPageUrl) {
+    const base = url.split('#')[0].split('?')[0];
+    if (base === listPageUrl) return true;
+  }
+  return false;
+}
+
+// Archives a window: records its tabs (in order, skipping this
+// extension's own pages) as a new group, then closes the window.  If it
+// is the only browser window, the list page is opened in a new window
+// first so that Chrome does not quit.  windowId defaults to the current
+// (last-focused) window.
+async function archiveWindow(windowId) {
+  const win = windowId == null
+    ? await chrome.windows.getLastFocused({ populate: true })
+    : await chrome.windows.get(windowId, { populate: true });
+
+  const listPageUrl = await getListPageUrl();
+  const tabs = (win.tabs || [])
+    .filter((t) => !isOwnUrl(t.url, listPageUrl))
+    .map((t) => ({ title: t.title, url: t.url }));
+
+  if (tabs.length === 0) return; // nothing to archive
+
+  await prependGroup({ created: Date.now(), tabs });
+
+  const normalWindows = (await chrome.windows.getAll()).filter((w) => w.type === 'normal');
+  if (normalWindows.length <= 1 && listPageUrl) {
+    await chrome.windows.create({ url: listPageUrl });
+  }
+
+  await chrome.windows.remove(win.id);
 }

@@ -13,6 +13,13 @@
         "mac": "MacCtrl+Shift+L"
       },
       "description": "Open the tab groups list"
+    },
+    "archive-window": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "MacCtrl+Shift+E"
+      },
+      "description": "Archive the current window"
     }
   },
   "content_scripts": [

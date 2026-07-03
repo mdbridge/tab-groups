@@ -18,7 +18,7 @@ machine).
   - [x] Phase 0 -- Prerequisites / one-time setup
   - [x] Phase 1 -- Skeleton extension: shortcut opens a static page
   - [x] Phase 2 -- Persistent data model (storage layer)
-  - [ ] Phase 3 -- Archive the current window
+  - [x] Phase 3 -- Archive the current window
   - [ ] Phase 4 -- Display real tab groups on the list page
   - [ ] Phase 5 -- Recall a tab group
   - [ ] Phase 6 -- Export the list to a file
@@ -96,21 +96,21 @@ Done when: groups round-trip through storage and persist; test passes.
 Goal: the archive shortcut records the current window's tabs as a new
 group and closes the window.
 
-  - [ ] `manifest.json`: add `commands` entry `archive-window` bound to
+  - [x] `manifest.json`: add `commands` entry `archive-window` bound to
         `Ctrl+Shift+E`; add any needed permissions (`tabs`, `windows`,
         `storage`).
-  - [ ] `background.js`: on `archive-window`, collect the window's tabs
+  - [x] `background.js`: on `archive-window`, collect the window's tabs
         in order (title + url), skipping this extension's own pages (the
         list page and setup page), prepend a new group, then close the
         window.
-  - [ ] If it is the only browser window, open the list page in a new
+  - [x] If it is the only browser window, open the list page in a new
         window first, then close the old one (so Chrome does not quit).
-  - [ ] Do nothing if there are no tabs to record after skipping our
+  - [x] Do nothing if there are no tabs to record after skipping our
         own pages.
-  - [ ] RED/GREEN test: open a window with known tabs, archive it,
+  - [x] RED/GREEN test: open a window with known tabs, archive it,
         assert the window closed and a matching group was stored in
         order.
-  - [ ] Test the last-window case opens the list page in a new window.
+  - [x] Test the last-window case opens the list page in a new window.
 
 Done when: archiving stores the correct group and closes the window;
 tests pass.
