@@ -48,6 +48,38 @@ test('archiving a window stores its tabs in order, skips own pages, closes it', 
   expect(typeof result.groups[0].created).toBe('number');
 });
 
+// A window containing only this extension's own pages has nothing to
+// record, but is still closed (for consistency); no group is created.
+test('archiving a window of only own pages closes it without a group', async ({
+  serviceWorker,
+}) => {
+  const result = await serviceWorker.evaluate(async () => {
+    const listPageUrl = await getListPageUrl();
+    await saveGroups([]);
+
+    const win = await chrome.windows.create({ url: [listPageUrl, listPageUrl] });
+    for (let i = 0; i < 50; i++) {
+      const tabs = await chrome.tabs.query({ windowId: win.id });
+      if (tabs.length === 2 && tabs.every((t) => t.url)) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    await archiveWindow(win.id);
+
+    let windowGone = false;
+    try {
+      await chrome.windows.get(win.id);
+    } catch {
+      windowGone = true;
+    }
+
+    return { groups: await getGroups(), windowGone };
+  });
+
+  expect(result.windowGone).toBe(true);
+  expect(result.groups).toHaveLength(0);
+});
+
 // Archiving the only browser window opens the list page in a new window
 // first, so Chrome does not quit.
 test('archiving the last window opens the list page in a new window', async ({

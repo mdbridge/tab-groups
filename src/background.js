@@ -116,9 +116,12 @@ async function getListPageUrl() {
   }
 }
 
-chrome.commands.onCommand.addListener((command) => {
+chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'open-list') openList();
-  if (command === 'archive-window') archiveWindow();
+  // tab is the active tab when the shortcut fired; its window is the one
+  // to archive.  getLastFocused (the fallback) can pick the wrong window
+  // when several are open.
+  if (command === 'archive-window') archiveWindow(tab?.windowId);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -207,8 +210,8 @@ function isOwnUrl(url, listPageUrl) {
 // Archives a window: records its tabs (in order, skipping this
 // extension's own pages) as a new group, then closes the window.  If it
 // is the only browser window, the list page is opened in a new window
-// first so that Chrome does not quit.  windowId defaults to the current
-// (last-focused) window.
+// first so that Chrome does not quit.  windowId should be the window the
+// user is in; it falls back to the last-focused window when omitted.
 async function archiveWindow(windowId) {
   const win = windowId == null
     ? await chrome.windows.getLastFocused({ populate: true })
@@ -219,9 +222,11 @@ async function archiveWindow(windowId) {
     .filter((t) => !isOwnUrl(t.url, listPageUrl))
     .map((t) => ({ title: t.title, url: t.url }));
 
-  if (tabs.length === 0) return; // nothing to archive
-
-  await prependGroup({ created: Date.now(), tabs });
+  // A window of only our own pages has nothing to record, but is still
+  // closed below for consistency.
+  if (tabs.length > 0) {
+    await prependGroup({ created: Date.now(), tabs });
+  }
 
   const normalWindows = (await chrome.windows.getAll()).filter((w) => w.type === 'normal');
   if (normalWindows.length <= 1 && listPageUrl) {

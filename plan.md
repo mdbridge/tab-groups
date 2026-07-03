@@ -105,8 +105,9 @@ group and closes the window.
         window.
   - [x] If it is the only browser window, open the list page in a new
         window first, then close the old one (so Chrome does not quit).
-  - [x] Do nothing if there are no tabs to record after skipping our
-        own pages.
+  - [x] If there are no tabs to record after skipping our own pages,
+        create no group but still close the window (opening a new list
+        window if it was the last one), for consistency.
   - [x] RED/GREEN test: open a window with known tabs, archive it,
         assert the window closed and a matching group was stored in
         order.

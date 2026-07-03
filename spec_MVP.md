@@ -104,7 +104,9 @@ Archiving the current browser window:
      old window is closed, so that Chrome does not quit.
 
 If, after skipping this extension's own pages, there are no tabs to
-record, no tab group is created (nothing to archive).
+record, no tab group is created -- but the window is still closed (and,
+if it was the last one, the list page is opened in a new window),
+for consistency.
 
 
 ## Recall behavior
