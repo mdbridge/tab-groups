@@ -16,7 +16,7 @@ machine).
 ## Progress overview
 
   - [x] Phase 0 -- Prerequisites / one-time setup
-  - [ ] Phase 1 -- Skeleton extension: shortcut opens a static page
+  - [x] Phase 1 -- Skeleton extension: shortcut opens a static page
   - [ ] Phase 2 -- Persistent data model (storage layer)
   - [ ] Phase 3 -- Archive the current window
   - [ ] Phase 4 -- Display real tab groups on the list page
@@ -52,24 +52,24 @@ Files: `manifest.json`, `src/background.js`, `src/content.js`,
 `src/tab_groups_list_page.html`, `src/tab_groups_styles.css`,
 `setup.bat`, `setup-required.html`.
 
-  - [ ] `setup.bat` writes `local-config.json` with
+  - [x] `setup.bat` writes `local-config.json` with
         `LIST_PAGE_URL` -> `file:///.../src/tab_groups_list_page.html`
         (parallel to the menu extension's `MENU_PAGE_URL`).
-  - [ ] Run `setup.bat` so `local-config.json` exists locally.
-  - [ ] `manifest.json`: MV3, background service worker, a `commands`
-        entry `open-list` bound to `Ctrl+Shift+G`, and a
+  - [x] Run `setup.bat` so `local-config.json` exists locally.
+  - [x] `manifest.json`: MV3, background service worker, a `commands`
+        entry `open-list` bound to `Ctrl+Shift+L`, and a
         `content_scripts` match on `file:///*tab_groups_list_page.html*`.
-  - [ ] `background.js`: load `LIST_PAGE_URL` from `local-config.json`;
+  - [x] `background.js`: load `LIST_PAGE_URL` from `local-config.json`;
         on the `open-list` command open that URL in a new tab; if the
         config is missing, open `setup-required.html`.
-  - [ ] `tab_groups_list_page.html`: a root element with placeholder
+  - [x] `tab_groups_list_page.html`: a root element with placeholder
         text (e.g., `Tab Groups`).
-  - [ ] `content.js`: find the root element and confirm it runs (e.g.,
+  - [x] `content.js`: find the root element and confirm it runs (e.g.,
         set a known marker in the page).
-  - [ ] Test fixtures (`tests/fixtures.js`) adapted from the menu
+  - [x] Test fixtures (`tests/fixtures.js`) adapted from the menu
         extension: launch persistent context with the extension loaded,
         grab the service worker, helper to open the list page.
-  - [ ] RED/GREEN test: invoking the open-list command opens the list
+  - [x] RED/GREEN test: invoking the open-list command opens the list
         page and the content script marker is present.
 
 Done when: the shortcut opens the page and the content script proves it

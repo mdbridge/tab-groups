@@ -72,11 +72,13 @@ Notes:
 
 There are global keyboard shortcuts to:
 
-  * open the tab groups list page -- `Ctrl+Shift+G`
+  * open the tab groups list page -- `Ctrl+Shift+L`
   * archive the current browser window -- `Ctrl+Shift+E`
 
 (The menu extension already uses `Ctrl+Shift+Y` and `Ctrl+Shift+X`, so
-those are avoided here.  As with any Chrome command, the user can
+those are avoided here.  `Ctrl+Shift+G` is avoided because it is a
+reserved browser accelerator -- Chrome's Find Previous -- which Chrome
+will not bind to an extension.  As with any Chrome command, the user can
 rebind these on the browser's extension shortcuts page.)
 
 

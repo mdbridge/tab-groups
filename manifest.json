@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Groups",
+  "version": "1.0.0",
+  "description": "Archive browser windows' tabs into recallable tab groups, suitable for control by voice.",
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "commands": {
+    "open-list": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "MacCtrl+Shift+L"
+      },
+      "description": "Open the tab groups list"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["file:///*tab_groups_list_page.html*"],
+      "js": ["src/content.js"]
+    }
+  ],
+  "permissions": ["tabs"]
+}
