@@ -21,7 +21,7 @@ machine).
   - [x] Phase 3 -- Archive the current window
   - [x] Phase 4 -- Display real tab groups on the list page
   - [x] Phase 5 -- Recall a tab group
-  - [ ] Phase 6 -- Export the list to a file
+  - [x] Phase 6 -- Export the list to a file
   - [ ] Phase 7 -- Import a list from a file
   - [ ] Phase 8 -- Polish: styling, README, edge cases
 
@@ -123,7 +123,7 @@ Goal: the list page renders the stored groups.
   - [x] `content.js` asks the background for the groups
         (`chrome.runtime.sendMessage`), newest first.
   - [x] Render each group: creation time (formatted local
-        `YYYY-MM-DD HH:MM:SS`), tab count, and the list of its tabs
+        `MM/DD/YYYY H:MM:SS AM/PM`), tab count, and the list of its tabs
         (title + url) beneath it.
   - [x] Include a placeholder recall link per group (wired up in
         Phase 5) and placeholder Export/Import links at the top (wired
@@ -160,17 +160,16 @@ pass.
 Goal: the Export link writes the list to a user-chosen file in the
 human-editable text format.
 
-  - [ ] Implement `serialize(groups) -> text` in the format from the
+  - [x] Implement `serialize(groups) -> text` in the format from the
         spec (`Time created:` headers, `url<whitespace>title` lines,
-        blank line between groups).
-  - [ ] `content.js`: Export uses `showSaveFilePicker` with a suggested
-        name like `tab-groups-2026-07-03.txt`, then writes the text.
-  - [ ] Fallback when `showSaveFilePicker` is unavailable:
-        `chrome.downloads.download` with `saveAs: true` via the service
-        worker (add the `downloads` permission if used).
-  - [ ] RED/GREEN test on the pure `serialize` function (the native save
-        dialog itself is out of scope for automated tests -- note this
-        in the test file).
+        blank line between groups).  Lives in `background.js` so it is
+        testable via `serviceWorker.evaluate`.
+  - [x] `content.js`: Export uses `showSaveFilePicker` with a suggested
+        name like `tab-groups-07-03-2026.txt`, then writes the text.
+  - [x] Fallback when `showSaveFilePicker` is unavailable: a normal
+        blob download (`<a download>`), needing no extra permission.
+  - [x] RED/GREEN test on the pure `serialize` function (the native save
+        dialog itself is out of scope for automated tests).
 
 Done when: `serialize` produces the specified format and is tested;
 Export writes a file interactively.

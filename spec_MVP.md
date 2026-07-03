@@ -63,9 +63,10 @@ Notes:
   * Favicons are intentionally not stored in the MVP.  They may be added
     in a future iteration; the design for that will be done then.
 
-  * The creation time is stored as epoch milliseconds internally and
-    formatted as local time `YYYY-MM-DD HH:MM:SS` for display and
-    export.
+  * The creation time is stored as epoch milliseconds internally.  It is
+    shown on the list page in local 12-hour form
+    (`MM/DD/YYYY H:MM:SS AM/PM`) and written to export files in local
+    24-hour form (`MM/DD/YYYY HH:MM:SS`).
 
 
 ## Global commands
@@ -140,7 +141,7 @@ importing the list from a file.
   * Export opens a native "save file" dialog so the user chooses where
     to write the file, then writes the current list there as text (see
     format below).  The dialog is pre-filled with a suggested name like
-    `tab-groups-2026-07-03.txt`.
+    `tab-groups-07-03-2026.txt`.
 
   * Import opens a native "open file" dialog for the user to choose a
     file, then replaces the entire current list with its contents.  If
@@ -151,10 +152,10 @@ The save and open dialogs are provided by the File System Access API
 (`showSaveFilePicker` and `showOpenFilePicker`), called directly from
 the content script on the list page; this needs no extra permission and
 keeps the file I/O in the normal page rather than the service worker.
-If the API is unavailable, export falls back to
-`chrome.downloads.download` with `saveAs: true` (via the service worker,
-which forces a Save As dialog) and import falls back to a plain
-`<input type="file">` picker.
+If the API is unavailable, export falls back to a normal download of the
+text (a blob URL and a synthesized `<a download>` click, needing no
+extra permission) and import falls back to a plain `<input type="file">`
+picker.
 
 Typing Escape closes this page.
 
@@ -173,11 +174,11 @@ the line).
 Example with two tab groups:
 
 ```
-Time created: 2026-07-03 16:15:23
+Time created: 07/03/2026 16:15:23
 https://github.com/me/repo	GitHub - me/repo
 https://stackoverflow.com/q/12345	How do I parse this
 
-Time created: 2026-07-02 09:30:00
+Time created: 07/02/2026 09:30:00
 https://mail.google.com/	Gmail
 https://news.ycombinator.com/	Hacker News
 ```

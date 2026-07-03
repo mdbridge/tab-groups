@@ -25,11 +25,15 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
-// Formats an epoch-ms time as local "YYYY-MM-DD HH:MM:SS".
+// Formats an epoch-ms time for display as local 12-hour
+// "MM/DD/YYYY H:MM:SS AM/PM".
 function formatTime(ms) {
   const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
-         `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  let h = d.getHours();
+  const ampm = h < 12 ? 'AM' : 'PM';
+  h = h % 12 || 12;
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ` +
+         `${h}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${ampm}`;
 }
 
 function render(groups) {
@@ -41,8 +45,14 @@ function render(groups) {
 
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
-  toolbar.appendChild(makeToolbarLink('export-link', 'Export'));
-  toolbar.appendChild(makeToolbarLink('import-link', 'Import'));
+
+  const exportLink = makeToolbarLink('export-link', 'Export');
+  exportLink.addEventListener('click', doExport);
+  toolbar.appendChild(exportLink);
+
+  const importLink = makeToolbarLink('import-link', 'Import');
+  toolbar.appendChild(importLink); // wired up in Phase 7
+
   root.appendChild(toolbar);
 
   if (groups.length === 0) {
@@ -109,6 +119,51 @@ function renderGroup(group) {
   section.appendChild(ul);
 
   return section;
+}
+
+// Date stamp for the default export filename: MM-DD-YYYY (year last;
+// dashes, since filenames cannot contain slashes).
+function todayStamp() {
+  const d = new Date();
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${d.getFullYear()}`;
+}
+
+// Exports the list to a user-chosen file.  Primary path is the File
+// System Access API, which shows a native save dialog; falls back to a
+// normal download where that API is unavailable.
+async function doExport() {
+  const response = await chrome.runtime.sendMessage({ action: 'exportText' });
+  const text = response?.text ?? '';
+  const filename = `tab-groups-${todayStamp()}.txt`;
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // user cancelled the dialog
+      // Otherwise fall through to the download fallback.
+    }
+  }
+  downloadTextFile(filename, text);
+}
+
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function renderTab(tab) {

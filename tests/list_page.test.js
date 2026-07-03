@@ -33,7 +33,9 @@ test('list page renders stored groups newest-first with their tabs', async ({
     'https://beta.example/',
   ]);
   await expect(first.locator('.group-count')).toContainText('2');
-  await expect(first.locator('.group-time')).toHaveText(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/);
+  await expect(first.locator('.group-time')).toHaveText(
+    /^\d\d\/\d\d\/\d{4} \d{1,2}:\d\d:\d\d (AM|PM)$/,
+  );
 
   const second = groupEls.nth(1);
   await expect(second.locator('.tab-title')).toHaveText(['Gamma']);
