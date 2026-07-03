@@ -53,6 +53,16 @@ chrome.commands.onCommand.addListener((command) => {
   if (command === 'archive-window') archiveWindow();
 });
 
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'getGroups') {
+    getGroups().then((groups) => sendResponse({ groups }));
+    return true; // keep the message port open for the async response
+  }
+  if (message.action === 'closeList') {
+    if (sender.tab?.id != null) chrome.tabs.remove(sender.tab.id);
+  }
+});
+
 async function openList() {
   const listPageUrl = await getListPageUrl();
   if (!listPageUrl) {

@@ -19,7 +19,7 @@ machine).
   - [x] Phase 1 -- Skeleton extension: shortcut opens a static page
   - [x] Phase 2 -- Persistent data model (storage layer)
   - [x] Phase 3 -- Archive the current window
-  - [ ] Phase 4 -- Display real tab groups on the list page
+  - [x] Phase 4 -- Display real tab groups on the list page
   - [ ] Phase 5 -- Recall a tab group
   - [ ] Phase 6 -- Export the list to a file
   - [ ] Phase 7 -- Import a list from a file
@@ -120,16 +120,16 @@ tests pass.
 
 Goal: the list page renders the stored groups.
 
-  - [ ] `content.js` asks the background for the groups
+  - [x] `content.js` asks the background for the groups
         (`chrome.runtime.sendMessage`), newest first.
-  - [ ] Render each group: creation time (formatted local
+  - [x] Render each group: creation time (formatted local
         `YYYY-MM-DD HH:MM:SS`), tab count, and the list of its tabs
         (title + url) beneath it.
-  - [ ] Include a placeholder recall link per group (wired up in
+  - [x] Include a placeholder recall link per group (wired up in
         Phase 5) and placeholder Export/Import links at the top (wired
         up in Phases 6--7).
-  - [ ] Escape closes the page.
-  - [ ] RED/GREEN test: seed storage with groups, open the list page,
+  - [x] Escape closes the page.
+  - [x] RED/GREEN test: seed storage with groups, open the list page,
         assert the groups, counts, tabs, and order are shown; assert
         Escape closes the page.
 
