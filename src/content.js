@@ -91,7 +91,12 @@ function renderGroup(group) {
   recall.className = 'recall';
   recall.href = '#';
   recall.textContent = 'Recall';
-  recall.addEventListener('click', (e) => e.preventDefault()); // wired in Phase 5
+  recall.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.runtime.sendMessage({ action: 'recall', created: group.created }, (response) => {
+      render(response?.groups || []);
+    });
+  });
   header.appendChild(recall);
 
   section.appendChild(header);

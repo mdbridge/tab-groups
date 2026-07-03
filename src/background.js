@@ -58,10 +58,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     getGroups().then((groups) => sendResponse({ groups }));
     return true; // keep the message port open for the async response
   }
+  if (message.action === 'recall') {
+    recallGroup(message.created)
+      .then(getGroups)
+      .then((groups) => sendResponse({ groups }));
+    return true; // keep the message port open for the async response
+  }
   if (message.action === 'closeList') {
     if (sender.tab?.id != null) chrome.tabs.remove(sender.tab.id);
   }
 });
+
+// Recalls a group: opens a new focused window containing its tabs, in
+// order, and removes the group from storage.  Best effort -- URLs that
+// cannot be opened are skipped rather than aborting the recall.
+async function recallGroup(created) {
+  const groups = await getGroups();
+  const group = groups.find((g) => g.created === created);
+  if (!group) return;
+
+  // Start from an empty window, then add each tab so one bad URL cannot
+  // abort the whole window creation.
+  const win = await chrome.windows.create({ focused: true });
+  const placeholderTabId = win.tabs?.[0]?.id;
+
+  let opened = 0;
+  for (const tab of group.tabs) {
+    try {
+      await chrome.tabs.create({ windowId: win.id, url: tab.url, active: false });
+      opened++;
+    } catch {
+      // Skip URLs that cannot be opened.
+    }
+  }
+
+  // Drop the placeholder new-tab page once real tabs exist.
+  if (opened > 0 && placeholderTabId != null) {
+    try {
+      await chrome.tabs.remove(placeholderTabId);
+    } catch {}
+  }
+
+  await removeGroup(created);
+}
 
 async function openList() {
   const listPageUrl = await getListPageUrl();

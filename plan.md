@@ -20,7 +20,7 @@ machine).
   - [x] Phase 2 -- Persistent data model (storage layer)
   - [x] Phase 3 -- Archive the current window
   - [x] Phase 4 -- Display real tab groups on the list page
-  - [ ] Phase 5 -- Recall a tab group
+  - [x] Phase 5 -- Recall a tab group
   - [ ] Phase 6 -- Export the list to a file
   - [ ] Phase 7 -- Import a list from a file
   - [ ] Phase 8 -- Polish: styling, README, edge cases
@@ -141,13 +141,13 @@ Done when: the list page faithfully shows stored groups; tests pass.
 Goal: clicking a group's recall link reopens its window and removes the
 group.
 
-  - [ ] `background.js`: `recallGroup(created)` opens a new window with
+  - [x] `background.js`: `recallGroup(created)` opens a new window with
         the group's tabs in order, focuses it, and removes the group
         from storage.
-  - [ ] Best effort: skip URLs that fail to open; do not abort; still
+  - [x] Best effort: skip URLs that fail to open; do not abort; still
         remove the group.
-  - [ ] `content.js`: wire the recall link to send the recall message.
-  - [ ] RED/GREEN test: seed a group, recall it, assert a new window
+  - [x] `content.js`: wire the recall link to send the recall message.
+  - [x] RED/GREEN test: seed a group, recall it, assert a new window
         with the tabs (in order) opened and the group was removed from
         storage.
 
