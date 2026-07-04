@@ -23,7 +23,7 @@ machine).
   - [x] Phase 5 -- Recall a tab group
   - [x] Phase 6 -- Export the list to a file
   - [x] Phase 7 -- Import a list from a file
-  - [ ] Phase 8 -- Polish: styling, README, edge cases
+  - [x] Phase 8 -- Polish: styling, README, edge cases
 
 
 ## Phase 0 -- Prerequisites / one-time setup
@@ -199,13 +199,13 @@ Import replaces the list with confirmation.
 
 Goal: make it pleasant and documented.
 
-  - [ ] Style `tab_groups_styles.css` (light/dark, readable list),
+  - [x] Style `tab_groups_styles.css` (light/dark, readable list),
         drawing on the menu extension's stylesheet.
-  - [ ] `README.md`: what it is, install (Load unpacked + `setup.bat`),
+  - [x] `README.md`: what it is, install (Load unpacked + `setup.bat`),
         shortcuts, usage, dependencies, authorship/public-domain note.
-  - [ ] Review edge cases: empty list message on the list page; groups
+  - [x] Review edge cases: empty list message on the list page; groups
         with many tabs; very long titles/URLs.
-  - [ ] Final full test run: `npx playwright test` all green.
+  - [x] Final full test run: `npx playwright test` all green.
 
 Done when: the extension looks good, is documented, and the whole suite
 passes.
