@@ -28,6 +28,25 @@ test('parse round-trips serialize', async ({ serviceWorker }) => {
   expect(parsed).toEqual(groups);
 });
 
+test('parse round-trips serialize with non-ASCII titles', async ({ serviceWorker }) => {
+  // "cafe(acute) Nihongo party-emoji" built from code points so the
+  // source stays ASCII while exercising real UTF-8 at runtime.
+  const title =
+    'caf' + String.fromCharCode(0xe9) +
+    ' ' + String.fromCharCode(0x65e5, 0x672c, 0x8a9e) +
+    ' ' + String.fromCodePoint(0x1f389);
+  const groups = [
+    { created: t1, tabs: [{ title, url: 'https://example.com/unicode' }] },
+  ];
+
+  const parsed = await serviceWorker.evaluate(
+    (g) => parseGroups(serializeGroups(g)),
+    groups,
+  );
+
+  expect(parsed).toEqual(groups);
+});
+
 test('parse is lenient about whitespace, bare URLs, and bad timestamps', async ({
   serviceWorker,
 }) => {

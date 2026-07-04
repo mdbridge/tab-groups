@@ -67,3 +67,32 @@ test('export downloads the serialized list via a Save As dialog', async ({
   const decoded = decodeURIComponent(call.url.replace('data:text/plain;charset=utf-8,', ''));
   expect(decoded).toContain('https://a.example/');
 });
+
+test('export encodes non-ASCII titles as UTF-8 in the download', async ({
+  serviceWorker,
+}) => {
+  const result = await serviceWorker.evaluate(async () => {
+    // "cafe(acute) Nihongo party-emoji" from code points (ASCII source).
+    const title =
+      'caf' + String.fromCharCode(0xe9) +
+      ' ' + String.fromCharCode(0x65e5, 0x672c, 0x8a9e) +
+      ' ' + String.fromCodePoint(0x1f389);
+    await saveGroups([{ created: 0, tabs: [{ title, url: 'https://u.example/' }] }]);
+
+    const calls = [];
+    const orig = chrome.downloads.download;
+    chrome.downloads.download = (opts) => {
+      calls.push(opts);
+      return Promise.resolve(1);
+    };
+    try {
+      await exportDownload();
+    } finally {
+      chrome.downloads.download = orig;
+    }
+    return { url: calls[0].url, title };
+  });
+
+  const decoded = decodeURIComponent(result.url.replace('data:text/plain;charset=utf-8,', ''));
+  expect(decoded).toContain(result.title);
+});
