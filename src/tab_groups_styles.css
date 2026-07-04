@@ -4,12 +4,17 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #f8f9fa;
   color: #202124;
-  padding: 24px;
+  padding: 32px;
   line-height: 1.5;
 }
 
+#__tab_groups_root__ {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
 h1 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   margin-bottom: 12px;
 }
@@ -25,65 +30,103 @@ a:hover {
 
 .toolbar {
   display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 20px;
+  margin-bottom: 24px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #dadce0;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 14px;
 }
 
 .empty {
   color: #5f6368;
+  padding: 0 12px;
 }
 
 .tab-group {
-  margin-bottom: 24px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 10px 8px;
+  margin-bottom: 16px;
 }
 
 .group-header {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  padding: 0 8px 0 0.25in;
 }
 
 .group-time {
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .group-count {
-  color: #5f6368;
   font-size: 13px;
+  color: #5f6368;
 }
 
 .recall {
   font-size: 13px;
+  font-weight: 500;
 }
 
 .group-tabs {
   list-style: none;
-  padding-left: 16px;
 }
 
 .tab {
-  margin-bottom: 8px;
+  border-radius: 6px;
+  padding: 1px 8px;
+  line-height: 1.3;
+}
+
+.tab:hover {
+  background: #e8f0fe;
 }
 
 .tab-title {
   display: block;
   font-size: 14px;
+  font-weight: 500;
+  color: #1a73e8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tab-url {
-  font-size: 12px;
-  color: #5f6368;
-  word-break: break-all;
-}
-
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
-  body { background: #202124; color: #e8eaed; }
-  a { color: #8ab4f8; }
-  .toolbar { border-bottom-color: #3c4043; }
+  body {
+    background: #202124;
+    color: #e8eaed;
+  }
+
+  a {
+    color: #8ab4f8;
+  }
+
+  .toolbar {
+    border-bottom-color: #3c4043;
+  }
+
   .empty,
-  .group-count,
-  .tab-url { color: #9aa0a6; }
+  .group-count {
+    color: #9aa0a6;
+  }
+
+  .tab-group {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  .tab:hover {
+    background: #35363b;
+  }
+
+  .tab-title {
+    color: #8ab4f8;
+  }
 }

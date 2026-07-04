@@ -28,10 +28,15 @@ test('list page renders stored groups newest-first with their tabs', async ({
 
   const first = groupEls.nth(0);
   await expect(first.locator('.tab-title')).toHaveText(['Alpha', 'Beta']);
-  await expect(first.locator('.tab-url')).toHaveText([
+  // The URL is not shown; it is available as a tooltip on the title.
+  await expect(first.locator('.tab-title').nth(0)).toHaveAttribute(
+    'title',
     'https://alpha.example/',
+  );
+  await expect(first.locator('.tab-title').nth(1)).toHaveAttribute(
+    'title',
     'https://beta.example/',
-  ]);
+  );
   await expect(first.locator('.group-count')).toContainText('2');
   await expect(first.locator('.group-time')).toHaveText(
     /^\d\d\/\d\d\/\d{4} \d{1,2}:\d\d:\d\d (AM|PM)$/,

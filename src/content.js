@@ -171,12 +171,8 @@ function renderTab(tab) {
   const title = document.createElement('span');
   title.className = 'tab-title';
   title.textContent = tab.title || '(untitled)';
+  title.title = tab.url; // full URL shown as a tooltip on hover
   li.appendChild(title);
-
-  const url = document.createElement('div');
-  url.className = 'tab-url';
-  url.textContent = tab.url;
-  li.appendChild(url);
 
   return li;
 }
