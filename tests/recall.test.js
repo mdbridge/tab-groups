@@ -49,8 +49,9 @@ test('recall falls back and skips a URL that aborts the bulk open', async ({
   const bad = 'javascript:void(0)';
 
   const result = await serviceWorker.evaluate(async ({ good, bad }) => {
+    // Bad URL first, so the fallback must skip it while seeding the window.
     await saveGroups([
-      { created: 777, tabs: [{ title: 'good', url: good }, { title: 'bad', url: bad }] },
+      { created: 777, tabs: [{ title: 'bad', url: bad }, { title: 'good', url: good }] },
     ]);
 
     const beforeIds = (await chrome.windows.getAll()).map((w) => w.id);

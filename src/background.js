@@ -179,24 +179,27 @@ async function recallGroup(created) {
     // Open all tabs at once so the window has no leftover new-tab page.
     await chrome.windows.create({ url: urls, focused: true });
   } catch {
-    // A URL was rejected, which aborts the whole create; fall back to
-    // adding tabs one at a time from an empty window, skipping any that
-    // fail, then drop the placeholder new-tab page.
-    const win = await chrome.windows.create({ focused: true });
-    const placeholderTabId = win.tabs?.[0]?.id;
-    let opened = 0;
-    for (const url of urls) {
+    // A URL was rejected, which aborts the whole create.  Seed the
+    // window with the first URL that opens (a real tab, so there is no
+    // placeholder new-tab to clean up), then append the rest, skipping
+    // any that fail.
+    let win = null;
+    let next = 0;
+    for (let i = 0; i < urls.length; i++) {
       try {
-        await chrome.tabs.create({ windowId: win.id, url, active: false });
-        opened++;
+        win = await chrome.windows.create({ url: urls[i], focused: true });
+        next = i + 1;
+        break;
       } catch {
         // Skip URLs that cannot be opened.
       }
     }
-    if (opened > 0 && placeholderTabId != null) {
+    for (let i = next; win && i < urls.length; i++) {
       try {
-        await chrome.tabs.remove(placeholderTabId);
-      } catch {}
+        await chrome.tabs.create({ windowId: win.id, url: urls[i], active: false });
+      } catch {
+        // Skip URLs that cannot be opened.
+      }
     }
   }
 
