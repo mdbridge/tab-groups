@@ -131,7 +131,9 @@ For each tab group the page shows:
 
   * its creation time and the number of tabs it contains,
   * a link for recalling it, and
-  * the list of its tabs (title and URL) beneath it.
+  * the list of its tabs beneath it, each showing the tab's title; the
+    URL is not shown inline but appears as a tooltip when the mouse
+    hovers over the title.
 
 There are no editable group names, and no per-group delete/discard link
 in the MVP.  (A per-group discard is planned for the iteration after the
