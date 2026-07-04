@@ -38,18 +38,17 @@ test('recall opens a new window with the tabs in order and removes the group', a
   expect(result.remaining).toHaveLength(0);
 });
 
-// A URL that Chrome refuses in an API navigation (javascript:) makes the
-// bulk windows.create throw; recall should fall back to opening tabs one
-// at a time, skip the bad URL, leave no stray tab, and still remove the
-// group.
-test('recall falls back and skips a URL that aborts the bulk open', async ({
+// A URL that Chrome refuses in an API navigation (javascript:) cannot
+// seed or open a tab; recall should skip it, seed the window with the
+// next URL, leave no stray tab, and still remove the group.
+test('recall skips a URL that cannot open and seeds with the next', async ({
   serviceWorker,
 }) => {
   const good = 'data:text/plain,good';
   const bad = 'javascript:void(0)';
 
   const result = await serviceWorker.evaluate(async ({ good, bad }) => {
-    // Bad URL first, so the fallback must skip it while seeding the window.
+    // Bad URL first, so recall must skip it while seeding the window.
     await saveGroups([
       { id: 'g2', created: 777, tabs: [{ title: 'bad', url: bad }, { title: 'good', url: good }] },
     ]);
@@ -78,6 +77,50 @@ test('recall falls back and skips a URL that aborts the bulk open', async ({
 
   expect(result.newWindowCount).toBe(1);
   expect(result.urls).toEqual([good]);
+  expect(result.remaining).toHaveLength(0);
+});
+
+// The window is seeded with the first tab, then the rest are added as
+// background tabs.  This exercises that append path directly.
+test('recall opens later tabs as background tabs in order', async ({ serviceWorker }) => {
+  const good1 = 'data:text/plain,one';
+  const good2 = 'data:text/plain,two';
+
+  const result = await serviceWorker.evaluate(async ({ good1, good2 }) => {
+    await saveGroups([
+      {
+        id: 'g4',
+        created: 888,
+        tabs: [{ title: '1', url: good1 }, { title: '2', url: good2 }],
+      },
+    ]);
+
+    const beforeIds = (await chrome.windows.getAll()).map((w) => w.id);
+    await recallGroup('g4');
+    const newWin = (await chrome.windows.getAll()).find((w) => !beforeIds.includes(w.id));
+
+    async function settledTabs(windowId) {
+      for (let i = 0; i < 60; i++) {
+        const tabs = await chrome.tabs.query({ windowId });
+        if (tabs.length === 2 && tabs.every((t) => t.url)) {
+          return tabs.sort((a, b) => a.index - b.index);
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return (await chrome.tabs.query({ windowId })).sort((a, b) => a.index - b.index);
+    }
+    const tabs = await settledTabs(newWin.id);
+
+    return {
+      urls: tabs.map((t) => t.url),
+      activeStates: tabs.map((t) => t.active),
+      remaining: await getGroups(),
+    };
+  }, { good1, good2 });
+
+  expect(result.urls).toEqual([good1, good2]);
+  // First tab is active/foreground; the second was added in the background.
+  expect(result.activeStates).toEqual([true, false]);
   expect(result.remaining).toHaveLength(0);
 });
 

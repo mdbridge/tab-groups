@@ -122,6 +122,13 @@ Clicking a tab group's recall link:
 
   2. Removes that tab group from the stored list.
 
+The window is seeded with the first tab; the remaining tabs are added one
+at a time as background tabs (`active: false`) -- never a single bulk
+create of the whole list.  Background tabs that are never brought to the
+foreground have their media suspended by the browser, so a group of,
+e.g., video pages does not all start playing at once, while each tab
+still loads its real title and icon.  This follows OneTab's approach.
+
 Recall is best effort: if some URLs cannot be opened (e.g., a
 `chrome://` page a new tab is not allowed to navigate to), those tabs
 are skipped, but recall does not fail and the group is still removed.

@@ -181,39 +181,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // Recalls a group: opens a new focused window containing its tabs, in
-// order, and removes the group from storage.  Best effort -- URLs that
-// cannot be opened are skipped rather than aborting the recall.
+// order, and removes the group from storage.  Following OneTab, the
+// window is seeded with the first tab that opens (active), and the rest
+// are added one at a time as background tabs (active: false) -- never a
+// bulk windows.create of the whole array.  Background tabs load but
+// Chrome suspends their media, so a group of video pages does not all
+// start playing, while each tab still gets its real title and icon.
+// Best effort -- URLs that cannot be opened are skipped.
 async function recallGroup(id) {
   const groups = await getGroups();
   const group = groups.find((g) => g.id === id);
   if (!group) return;
 
   const urls = group.tabs.map((t) => t.url);
-  try {
-    // Open all tabs at once so the window has no leftover new-tab page.
-    await chrome.windows.create({ url: urls, focused: true });
-  } catch {
-    // A URL was rejected, which aborts the whole create.  Seed the
-    // window with the first URL that opens (a real tab, so there is no
-    // placeholder new-tab to clean up), then append the rest, skipping
-    // any that fail.
-    let win = null;
-    let next = 0;
-    for (let i = 0; i < urls.length; i++) {
-      try {
-        win = await chrome.windows.create({ url: urls[i], focused: true });
-        next = i + 1;
-        break;
-      } catch {
-        // Skip URLs that cannot be opened.
-      }
+
+  // Seed the window with the first URL that opens, so there is no
+  // leftover new-tab page.
+  let win = null;
+  let next = 0;
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      win = await chrome.windows.create({ url: urls[i], focused: true });
+      next = i + 1;
+      break;
+    } catch {
+      // Skip URLs that cannot be opened.
     }
-    for (let i = next; win && i < urls.length; i++) {
-      try {
-        await chrome.tabs.create({ windowId: win.id, url: urls[i], active: false });
-      } catch {
-        // Skip URLs that cannot be opened.
-      }
+  }
+
+  // Add the rest as background tabs.
+  for (let i = next; win && i < urls.length; i++) {
+    try {
+      await chrome.tabs.create({ windowId: win.id, url: urls[i], active: false });
+    } catch {
+      // Skip URLs that cannot be opened.
     }
   }
 

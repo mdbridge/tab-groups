@@ -19,7 +19,9 @@ Click-by-Voice -- can run on it too.
 - Press **Ctrl+Shift+L** to open the tab groups list.  Each group shows
   its creation time, tab count, and the tabs it contains.
 - Click **Recall** on a group to reopen its tabs in a new window; the
-  group is then removed from the list.
+  group is then removed from the list.  All but the first tab open in the
+  background, so a group full of video pages will not all start playing
+  at once.
 - Use **Export** / **Import** at the top of the list to save the list to
   a file or load it back (see below).
 - Press **Esc** to close the list page.
