@@ -146,9 +146,10 @@ importing the list from a file.
     `tab-groups-07-03-2026.txt`.
 
   * Import opens a native "open file" dialog for the user to choose a
-    file, then replaces the entire current list with its contents.  If
-    the current list is non-empty, the user is asked to confirm before
-    it is replaced.
+    file, then replaces the entire current list with its contents,
+    sorted newest-first (regardless of the file's order).  If the
+    current list is non-empty, the user is asked to confirm before it is
+    replaced.
 
 Export is performed by the background service worker via
 `chrome.downloads.download` with `saveAs: true`, which shows a native
@@ -196,6 +197,11 @@ Parsing rules (lenient, to survive hand editing):
 
   * One or more blank lines separate groups.  Leading and trailing
     whitespace on lines is ignored.
+
+The imported list is stored newest-first.  Because every group with a
+missing or unparseable timestamp takes the same import time, such groups
+sort above the dated groups (as though just imported) while keeping their
+relative order from the file.
 
 Titles are informational only; on recall the browser fetches each page's
 real title.  A hand-edited file may therefore list bare URLs with no

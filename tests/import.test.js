@@ -47,6 +47,51 @@ test('parse round-trips serialize with non-ASCII titles', async ({ serviceWorker
   expect(parsed).toEqual(groups);
 });
 
+test('import sorts groups newest-first regardless of file order', async ({
+  serviceWorker,
+}) => {
+  const older = new Date(2026, 0, 1, 8, 0, 0).getTime();
+  const newer = new Date(2026, 5, 1, 8, 0, 0).getTime();
+
+  const created = await serviceWorker.evaluate(async ({ older, newer }) => {
+    // A file that lists the older group first.
+    const text = serializeGroups([
+      { created: older, tabs: [{ title: 'Old', url: 'https://old.example/' }] },
+      { created: newer, tabs: [{ title: 'New', url: 'https://new.example/' }] },
+    ]);
+    const groups = await importGroups(text);
+    return groups.map((g) => g.created);
+  }, { older, newer });
+
+  expect(created).toEqual([newer, older]);
+});
+
+test('import puts undated groups on top (keeping file order) above dated ones', async ({
+  serviceWorker,
+}) => {
+  // A dated (old) group, then two undated groups, in this file order.
+  const text = [
+    'Time created: 01/01/2026 08:00:00',
+    'https://a.example/\tA dated old',
+    '',
+    'Time created: not a date',
+    'https://b.example/\tB undated',
+    '',
+    'Time created: also not a date',
+    'https://c.example/\tC undated',
+    '',
+  ].join('\n');
+
+  const urls = await serviceWorker.evaluate(async (text) => {
+    const groups = await importGroups(text);
+    return groups.map((g) => g.tabs[0].url);
+  }, text);
+
+  // Undated (b, c) are treated as just-imported -> top, in file order;
+  // the dated group (a) sorts below.
+  expect(urls).toEqual(['https://b.example/', 'https://c.example/', 'https://a.example/']);
+});
+
 test('parse is lenient about whitespace, bare URLs, and bad timestamps', async ({
   serviceWorker,
 }) => {
