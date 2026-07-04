@@ -106,12 +106,16 @@ function parseGroups(text) {
       continue;
     }
 
-    if (current) {
-      const ws = line.search(/\s/);
-      const url = ws === -1 ? line : line.slice(0, ws);
-      const title = ws === -1 ? '' : line.slice(ws).trim();
-      current.tabs.push({ title, url });
+    // A tab line with no preceding "Time created:" header starts an
+    // implicit group at the import time, so pasted URLs are not lost.
+    if (current === null) {
+      current = { created: importTime, tabs: [] };
+      groups.push(current);
     }
+    const ws = line.search(/\s/);
+    const url = ws === -1 ? line : line.slice(0, ws);
+    const title = ws === -1 ? '' : line.slice(ws).trim();
+    current.tabs.push({ title, url });
   }
 
   return groups.filter((g) => g.tabs.length > 0);

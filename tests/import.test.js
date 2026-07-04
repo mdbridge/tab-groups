@@ -92,6 +92,30 @@ test('import puts undated groups on top (keeping file order) above dated ones', 
   expect(urls).toEqual(['https://b.example/', 'https://c.example/', 'https://a.example/']);
 });
 
+test('parse gives headerless tab lines an implicit group at import time', async ({
+  serviceWorker,
+}) => {
+  const text = [
+    'https://orphan-a.example/\tOrphan A',
+    'https://orphan-b.example/\tOrphan B',
+    '',
+    'Time created: 07/03/2026 16:15:23',
+    'https://c.example/\tC',
+    '',
+  ].join('\n');
+
+  const result = await serviceWorker.evaluate((text) => parseGroups(text), text);
+
+  expect(result).toHaveLength(2);
+  expect(result[0].tabs).toEqual([
+    { title: 'Orphan A', url: 'https://orphan-a.example/' },
+    { title: 'Orphan B', url: 'https://orphan-b.example/' },
+  ]);
+  expect(typeof result[0].created).toBe('number');
+  expect(result[0].created).toBeGreaterThan(Date.now() - 60000);
+  expect(result[1].tabs).toEqual([{ title: 'C', url: 'https://c.example/' }]);
+});
+
 test('parse is lenient about whitespace, bare URLs, and bad timestamps', async ({
   serviceWorker,
 }) => {

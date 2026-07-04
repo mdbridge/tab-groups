@@ -198,6 +198,10 @@ Parsing rules (lenient, to survive hand editing):
   * One or more blank lines separate groups.  Leading and trailing
     whitespace on lines is ignored.
 
+  * Tab lines with no preceding `Time created:` header (e.g., URLs pasted
+    without one) form an implicit group at the import time, so they are
+    not lost.
+
 The imported list is stored newest-first.  Because every group with a
 missing or unparseable timestamp takes the same import time, such groups
 sort above the dated groups (as though just imported) while keeping their
