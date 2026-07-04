@@ -4,19 +4,19 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 const sampleGroups = [
-  { created: 2000, tabs: [{ title: 'Two', url: 'https://two.example/' }] },
-  { created: 1000, tabs: [{ title: 'One', url: 'https://one.example/' }] },
+  { id: 'g2', created: 2000, tabs: [{ title: 'Two', url: 'https://two.example/' }] },
+  { id: 'g1', created: 1000, tabs: [{ title: 'One', url: 'https://one.example/' }] },
 ];
 
-test('storage helpers prepend newest-first and remove by created', async ({
+test('storage helpers prepend newest-first and remove by id', async ({
   serviceWorker,
 }) => {
   const result = await serviceWorker.evaluate(async () => {
     await saveGroups([]);
-    await prependGroup({ created: 1, tabs: [{ title: 'one', url: 'https://one/' }] });
-    await prependGroup({ created: 2, tabs: [{ title: 'two', url: 'https://two/' }] });
+    await prependGroup({ id: 'one', created: 1, tabs: [{ title: 'one', url: 'https://one/' }] });
+    await prependGroup({ id: 'two', created: 2, tabs: [{ title: 'two', url: 'https://two/' }] });
     const afterPrepend = await getGroups();
-    await removeGroup(1);
+    await removeGroup('one');
     const afterRemove = await getGroups();
     return { afterPrepend, afterRemove };
   });

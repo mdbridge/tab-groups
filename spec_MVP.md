@@ -53,6 +53,10 @@ In particular:
 
 We have a list of tab groups.  Each tab group contains:
 
+  * a unique internal id, used to identify the group for recall/removal
+    (creation times are not unique -- e.g., undated imported groups all
+    share the import time -- so they cannot serve as the key); the id is
+    not written to export files,
   * a creation time, and
   * an ordered list of tabs, each of which has a title and a URL.
 

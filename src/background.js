@@ -13,6 +13,12 @@ async function getGroups() {
 }
 
 async function saveGroups(groups) {
+  // Every group needs a stable unique id: creation times are not unique
+  // (e.g., undated imported groups all share the import time), so they
+  // cannot identify a group for recall/remove.
+  for (const g of groups) {
+    if (!g.id) g.id = crypto.randomUUID();
+  }
   await chrome.storage.local.set({ [STORAGE_KEY]: groups });
 }
 
@@ -23,10 +29,10 @@ async function prependGroup(group) {
   return groups;
 }
 
-// Removes the first group with a matching creation time.
-async function removeGroup(created) {
+// Removes the group with the given id.
+async function removeGroup(id) {
   const groups = await getGroups();
-  const idx = groups.findIndex((g) => g.created === created);
+  const idx = groups.findIndex((g) => g.id === id);
   if (idx !== -1) {
     groups.splice(idx, 1);
     await saveGroups(groups);
@@ -164,7 +170,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // keep the message port open for the async response
   }
   if (message.action === 'recall') {
-    recallGroup(message.created)
+    recallGroup(message.id)
       .then(getGroups)
       .then((groups) => sendResponse({ groups }));
     return true; // keep the message port open for the async response
@@ -177,9 +183,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Recalls a group: opens a new focused window containing its tabs, in
 // order, and removes the group from storage.  Best effort -- URLs that
 // cannot be opened are skipped rather than aborting the recall.
-async function recallGroup(created) {
+async function recallGroup(id) {
   const groups = await getGroups();
-  const group = groups.find((g) => g.created === created);
+  const group = groups.find((g) => g.id === id);
   if (!group) return;
 
   const urls = group.tabs.map((t) => t.url);
@@ -211,7 +217,7 @@ async function recallGroup(created) {
     }
   }
 
-  await removeGroup(created);
+  await removeGroup(id);
 }
 
 async function openList() {

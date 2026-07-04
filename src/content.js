@@ -81,7 +81,7 @@ function makeToolbarLink(id, text) {
 function renderGroup(group) {
   const section = document.createElement('section');
   section.className = 'tab-group';
-  section.dataset.created = group.created;
+  section.dataset.id = group.id;
 
   const header = document.createElement('div');
   header.className = 'group-header';
@@ -103,7 +103,7 @@ function renderGroup(group) {
   recall.textContent = 'Recall';
   recall.addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.runtime.sendMessage({ action: 'recall', created: group.created }, (response) => {
+    chrome.runtime.sendMessage({ action: 'recall', id: group.id }, (response) => {
       render(response?.groups || []);
     });
   });
