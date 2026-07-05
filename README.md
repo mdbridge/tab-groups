@@ -105,6 +105,21 @@ npx playwright test
 ```
 
 
+## Inspiration
+
+This extension was inspired by the one tabs extension
+(https://chromewebstore.google.com/detail/onetab/chphlpgkkbolifaimnlloiipkdnihall),
+which I used for years.  Unfortunately, that extension cannot be used
+with click-by-voice so I had to make this extension to get similar
+functionality that can be conveniently controlled by voice.
+
+If you export your tabs in one tabs to a file, you can convert it for importing by
+this extension via:
+```
+$ cat one-tab.txt | sed -E 's` \| `\t`' > one-tab-converted.txt
+```
+
+
 ## Authorship and licensing
 
 This extension was vibe coded by Mark Lillibridge using the Claude Code
