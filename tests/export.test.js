@@ -43,13 +43,21 @@ test('serialize of an empty list is empty', async ({ serviceWorker }) => {
 test('export downloads the serialized list via a Save As dialog', async ({
   serviceWorker,
 }) => {
-  const call = await serviceWorker.evaluate(async () => {
+  const result = await serviceWorker.evaluate(async () => {
     await saveGroups([
       { created: 0, tabs: [{ title: 'A', url: 'https://a.example/' }] },
     ]);
-    // Stub the download so no real file/dialog is triggered; capture args.
+    // Stub the blob-URL builder (so no real offscreen document is created)
+    // and the download (so no real file/dialog is triggered); capture the
+    // text routed to the blob and the download options.
+    let captured = null;
+    const origBlob = createExportBlobUrl;
+    createExportBlobUrl = (text) => {
+      captured = text;
+      return Promise.resolve('blob:stub');
+    };
     const calls = [];
-    const orig = chrome.downloads.download;
+    const origDownload = chrome.downloads.download;
     chrome.downloads.download = (opts) => {
       calls.push(opts);
       return Promise.resolve(1);
@@ -57,15 +65,40 @@ test('export downloads the serialized list via a Save As dialog', async ({
     try {
       await exportDownload();
     } finally {
-      chrome.downloads.download = orig;
+      createExportBlobUrl = origBlob;
+      chrome.downloads.download = origDownload;
     }
-    return calls[0];
+    return { call: calls[0], captured };
   });
 
-  expect(call.saveAs).toBe(true);
-  expect(call.filename).toMatch(/^tab-groups-\d\d-\d\d-\d{4}\.txt$/);
-  const decoded = decodeURIComponent(call.url.replace('data:text/plain;charset=utf-8,', ''));
-  expect(decoded).toContain('https://a.example/');
+  expect(result.call.saveAs).toBe(true);
+  expect(result.call.filename).toMatch(/^tab-groups-\d\d-\d\d-\d{4}\.txt$/);
+  expect(result.call.url).toBe('blob:stub');
+  expect(result.captured).toContain('https://a.example/');
+});
+
+test('offscreen document builds a blob: URL carrying the export text', async ({
+  serviceWorker,
+}) => {
+  const result = await serviceWorker.evaluate(async () => {
+    const wanted = 'hello ' + String.fromCharCode(0x65e5, 0x672c, 0x8a9e) + ' world';
+    const url = await createExportBlobUrl(wanted);
+    const hadDoc = await chrome.offscreen.hasDocument();
+    let readBack = null;
+    try {
+      readBack = await (await fetch(url)).text();
+    } catch (e) {
+      readBack = 'FETCH_FAILED: ' + e.message;
+    }
+    await closeOffscreenDocument();
+    const closed = !(await chrome.offscreen.hasDocument());
+    return { url, hadDoc, readBack, wanted, closed };
+  });
+
+  expect(result.url).toMatch(/^blob:/);
+  expect(result.hadDoc).toBe(true);
+  expect(result.closed).toBe(true);
+  expect(result.readBack).toBe(result.wanted);
 });
 
 test('export encodes non-ASCII titles as UTF-8 in the download', async ({
@@ -79,20 +112,24 @@ test('export encodes non-ASCII titles as UTF-8 in the download', async ({
       ' ' + String.fromCodePoint(0x1f389);
     await saveGroups([{ created: 0, tabs: [{ title, url: 'https://u.example/' }] }]);
 
-    const calls = [];
-    const orig = chrome.downloads.download;
-    chrome.downloads.download = (opts) => {
-      calls.push(opts);
-      return Promise.resolve(1);
+    // Capture the text routed to the blob; the offscreen document turns it
+    // into UTF-8 bytes when it constructs the Blob.
+    let captured = null;
+    const origBlob = createExportBlobUrl;
+    createExportBlobUrl = (text) => {
+      captured = text;
+      return Promise.resolve('blob:stub');
     };
+    const origDownload = chrome.downloads.download;
+    chrome.downloads.download = () => Promise.resolve(1);
     try {
       await exportDownload();
     } finally {
-      chrome.downloads.download = orig;
+      createExportBlobUrl = origBlob;
+      chrome.downloads.download = origDownload;
     }
-    return { url: calls[0].url, title };
+    return { captured, title };
   });
 
-  const decoded = decodeURIComponent(result.url.replace('data:text/plain;charset=utf-8,', ''));
-  expect(decoded).toContain(result.title);
+  expect(result.captured).toContain(result.title);
 });

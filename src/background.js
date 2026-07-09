@@ -66,11 +66,53 @@ function exportFilename() {
 }
 
 // Downloads the serialized list.  saveAs shows a native "Save As" dialog
-// in both Chrome and Edge.
+// in both Chrome and Edge.  The list is downloaded from a blob: URL built
+// in an offscreen document rather than a data: URL: a service worker
+// cannot call URL.createObjectURL, and a data: URL of the whole list
+// overflows Chrome's ~2 MB URL-length limit for large lists.
 async function exportDownload() {
   const text = serializeGroups(await getGroups());
-  const url = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
-  await chrome.downloads.download({ url, filename: exportFilename(), saveAs: true });
+  const url = await createExportBlobUrl(text);
+  if (!url) return; // offscreen document unavailable; nothing to download
+  try {
+    // With saveAs:true this resolves only once the user has dismissed the
+    // Save As dialog and the download has begun reading the blob, so it is
+    // safe to free the blob (closeOffscreenDocument) afterwards.
+    await chrome.downloads.download({ url, filename: exportFilename(), saveAs: true });
+  } catch {
+    // The user canceled the Save As dialog, or the download failed.
+  } finally {
+    await closeOffscreenDocument();
+  }
+}
+
+// Builds a blob: URL for the export text inside an offscreen document (see
+// offscreen.js).  Returns null if the offscreen document cannot be used.
+async function createExportBlobUrl(text) {
+  await ensureOffscreenDocument();
+  const res = await chrome.runtime.sendMessage({
+    target: 'offscreen',
+    type: 'createBlobUrl',
+    text,
+  });
+  return res?.url || null;
+}
+
+async function ensureOffscreenDocument() {
+  if (await chrome.offscreen.hasDocument()) return;
+  await chrome.offscreen.createDocument({
+    url: 'src/offscreen.html',
+    reasons: ['BLOBS'],
+    justification: 'Build a blob: URL so large exports are not capped by data: URL length.',
+  });
+}
+
+async function closeOffscreenDocument() {
+  try {
+    if (await chrome.offscreen.hasDocument()) await chrome.offscreen.closeDocument();
+  } catch {
+    // Best effort: a lingering offscreen document only wastes a little memory.
+  }
 }
 
 function serializeGroups(groups) {
