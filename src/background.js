@@ -158,27 +158,45 @@ chrome.commands.onCommand.addListener((command, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Responses are always async (the sender is validated via a storage
+  // read), so keep the port open and reply once routeMessage resolves.
+  // Only actions that produce a response call sendResponse.
+  routeMessage(message, sender).then((response) => {
+    if (response !== undefined) sendResponse(response);
+  });
+  return true;
+});
+
+// Verifies the message came from our own list page (or one of our own
+// extension pages) and dispatches it.  The content script matches any
+// file:// path ending in the list-page name, so a stray or malicious
+// local file with a matching name would get our content script injected;
+// this guard stops such a page from reading or replacing the user's tab
+// groups.  Returns a response object, or undefined when none is needed.
+async function routeMessage(message, sender) {
+  const listPageUrl = await getListPageUrl();
+  if (!isOwnUrl(sender.url, listPageUrl)) return undefined;
+
   if (message.action === 'getGroups') {
-    getGroups().then((groups) => sendResponse({ groups }));
-    return true; // keep the message port open for the async response
+    return { groups: await getGroups() };
   }
   if (message.action === 'export') {
-    exportDownload();
+    await exportDownload();
+    return undefined;
   }
   if (message.action === 'importText') {
-    importGroups(message.text).then((groups) => sendResponse({ groups }));
-    return true; // keep the message port open for the async response
+    return { groups: await importGroups(message.text) };
   }
   if (message.action === 'recall') {
-    recallGroup(message.id)
-      .then(getGroups)
-      .then((groups) => sendResponse({ groups }));
-    return true; // keep the message port open for the async response
+    await recallGroup(message.id);
+    return { groups: await getGroups() };
   }
   if (message.action === 'closeList') {
     if (sender.tab?.id != null) chrome.tabs.remove(sender.tab.id);
+    return undefined;
   }
-});
+  return undefined;
+}
 
 // Recalls a group: opens a new focused window containing its tabs, in
 // order, and removes the group from storage.  Following OneTab, the
