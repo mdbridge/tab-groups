@@ -191,7 +191,16 @@ async function getListPageUrl() {
   }
 }
 
-chrome.commands.onCommand.addListener((command, tab) => {
+chrome.commands.onCommand.addListener(async (command, tab) => {
+  // Nothing works until setup.bat has generated local-config.json, so open
+  // the setup page instead of doing part of a command -- e.g., archiving
+  // and closing a window with nowhere to show the result, or (if it was
+  // the last window) quitting the browser.
+  const listPageUrl = await getListPageUrl();
+  if (!listPageUrl) {
+    chrome.tabs.create({ url: chrome.runtime.getURL('setup-required.html') });
+    return;
+  }
   if (command === 'open-list') openList();
   // tab is the active tab when the shortcut fired; its window is the one
   // to archive.  getLastFocused (the fallback) can pick the wrong window
