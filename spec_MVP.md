@@ -42,7 +42,9 @@ In particular:
   * The content script communicates with the background service worker
     via `chrome.runtime.sendMessage`; the service worker performs all
     privileged operations (querying tabs/windows, closing windows,
-    creating windows, reading/writing storage).
+    creating windows, reading/writing storage).  The worker ignores
+    messages whose sender is not the configured list page (or one of the
+    extension's own pages).
 
   * If `local-config.json` has not been generated yet, the global
     commands open a static `setup-required.html` extension page instead,
@@ -167,10 +169,15 @@ importing the list from a file.
 Export is performed by the background service worker via
 `chrome.downloads.download` with `saveAs: true`, which shows a native
 "Save As" dialog reliably in both Chrome and Edge (this needs the
-`downloads` permission).  Import uses a plain `<input type="file">`
-picker in the content script.  The File System Access API
-(`showSaveFilePicker` / `showOpenFilePicker`) is deliberately avoided:
-it is not dependable from a content script and silently fails in Edge.
+`downloads` permission).  Because a service worker cannot call
+`URL.createObjectURL`, and packing the whole list into a `data:` URL
+overflows Chrome's ~2 MB URL-length limit for large lists (a 10,000-tab
+list is ~1.3x over), the file is handed to the download as a short
+`blob:` URL built in an offscreen document (this needs the `offscreen`
+permission).  Import uses a plain `<input type="file">` picker in the
+content script.  The File System Access API (`showSaveFilePicker` /
+`showOpenFilePicker`) is deliberately avoided: it is not dependable from
+a content script and silently fails in Edge.
 
 Typing Escape closes this page.
 
