@@ -53,6 +53,30 @@ test('list page renders stored groups newest-first with their tabs', async ({
   ]);
 });
 
+// A list page left open must not go stale: when the stored list changes
+// (e.g., a window is archived elsewhere), every open list page updates.
+test('open list pages re-render when the stored list changes', async ({
+  context,
+  serviceWorker,
+}) => {
+  await serviceWorker.evaluate(() => saveGroups([]));
+
+  const pageA = await openListPage(context, serviceWorker);
+  const pageB = await openListPage(context, serviceWorker);
+  await pageA.waitForSelector('.empty');
+  await pageB.waitForSelector('.empty');
+
+  await serviceWorker.evaluate(() =>
+    prependGroup({ created: 1000, tabs: [{ title: 'New', url: 'https://new.example/' }] }),
+  );
+
+  for (const page of [pageA, pageB]) {
+    await expect(page.locator('.tab-group')).toHaveCount(1);
+    await expect(page.locator('.tab-title')).toHaveText(['New']);
+    await expect(page.locator('.empty')).toHaveCount(0);
+  }
+});
+
 test('list page shows an empty-state message when there are no groups', async ({
   context,
   serviceWorker,

@@ -26,6 +26,22 @@ if (root) {
       render(null);
       showError(`Cannot load tab groups: ${e.message}`);
     });
+
+  // Re-render when the stored list changes (e.g., a window is archived
+  // while this page is open, or another list page made a change).  The
+  // change payload itself is never rendered: this content script also
+  // runs on unauthorized copies of the list page (the match pattern is
+  // name-based), and anything rendered into a page's DOM is readable by
+  // that page's own scripts.  Re-fetching through the validated
+  // getGroups message keeps such pages empty-handed.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !('tabGroups' in changes)) return;
+    sendToBackground({ action: 'getGroups' })
+      .then((response) => render(response.groups))
+      .catch(() => {
+        // Unauthorized or orphaned page: leave it as it is.
+      });
+  });
 }
 
 // Sends a message to the background service worker and returns its
@@ -46,26 +62,38 @@ function sendToBackground(message) {
   });
 }
 
+// The status message is kept as state (not just in the DOM) so that it
+// survives re-renders -- e.g., the storage-change re-render arriving
+// just after an import shows "Imported ...".
+let statusText = '';
+let statusIsError = false;
+
+function applyStatus() {
+  if (!statusEl) return;
+  statusEl.textContent = statusText;
+  statusEl.classList.toggle('error', statusIsError);
+}
+
 // Shows an informational message in the status line.
 function showStatus(text) {
-  if (!statusEl) return;
-  statusEl.textContent = text;
-  statusEl.classList.remove('error');
+  statusText = text;
+  statusIsError = false;
+  applyStatus();
 }
 
 // Shows an error message in the status line.
 function showError(text) {
-  if (!statusEl) return;
-  statusEl.textContent = text;
-  statusEl.classList.add('error');
+  statusText = text;
+  statusIsError = true;
+  applyStatus();
 }
 
 // Clears the status line.  Called when a new action starts, so that a
 // shown message always refers to the most recent action.
 function clearStatus() {
-  if (!statusEl) return;
-  statusEl.textContent = '';
-  statusEl.classList.remove('error');
+  statusText = '';
+  statusIsError = false;
+  applyStatus();
 }
 
 function pad(n) {
@@ -110,6 +138,7 @@ function render(groups) {
   statusEl = document.createElement('div');
   statusEl.className = 'status';
   root.appendChild(statusEl);
+  applyStatus();
 
   if (groups === null) return;
 

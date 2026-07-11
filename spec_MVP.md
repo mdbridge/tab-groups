@@ -202,6 +202,15 @@ content script.  The File System Access API (`showSaveFilePicker` /
 `showOpenFilePicker`) is deliberately avoided: it is not dependable from
 a content script and silently fails in Edge.
 
+The page updates automatically when the stored list changes -- e.g., a
+window is archived while the page is open, or another list page makes a
+change -- so an open list page never goes stale.  The update re-fetches
+the list through the validated `getGroups` message rather than
+rendering the storage-change payload directly: the content script also
+runs on unauthorized copies of the list page (the match pattern is
+name-based), and anything rendered into a page's DOM can be read by
+that page's own scripts.
+
 A status line under the toolbar reports errors -- e.g., a failed recall
 or import, or the extension not answering because it was reloaded out
 from under the page -- and the result of an import.  It is cleared when
