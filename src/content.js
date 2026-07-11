@@ -1,6 +1,7 @@
 // Content script for the tab groups list page.  It runs on the
 // file:/// list page so that other extensions (e.g., Click-by-Voice)
-// can also operate on it.
+// can also operate on it.  lib/format.js is loaded before this file
+// (see the manifest) and provides formatDisplayTime.
 const root = document.getElementById('__tab_groups_root__');
 
 // The status line under the toolbar; recreated by each render().
@@ -96,21 +97,6 @@ function clearStatus() {
   applyStatus();
 }
 
-function pad(n) {
-  return String(n).padStart(2, '0');
-}
-
-// Formats an epoch-ms time for display as local 12-hour
-// "MM/DD/YYYY H:MM:SS AM/PM".
-function formatTime(ms) {
-  const d = new Date(ms);
-  let h = d.getHours();
-  const ampm = h < 12 ? 'AM' : 'PM';
-  h = h % 12 || 12;
-  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ` +
-         `${h}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${ampm}`;
-}
-
 // Renders the page: header, toolbar, status line, and the group list.
 // Pass null to render only the frame with no list (e.g., when the
 // groups could not be loaded); the caller then reports why via
@@ -174,7 +160,7 @@ function renderGroup(group) {
 
   const time = document.createElement('span');
   time.className = 'group-time';
-  time.textContent = formatTime(group.created);
+  time.textContent = formatDisplayTime(group.created);
   header.appendChild(time);
 
   const count = document.createElement('span');
