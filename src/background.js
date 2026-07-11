@@ -133,12 +133,25 @@ function serializeGroups(groups) {
 // token, title = the rest); a blank line ends a group; an unparseable or
 // missing timestamp falls back to the import time.  Groups with no tabs
 // are dropped.
+//
+// Returns { groups, warnings }.  The warnings (strings, possibly none)
+// describe input that is discarded (empty groups) or looks wrong but is
+// kept (tab lines whose URL has no scheme, e.g., a pasted bare hostname
+// or a non-export file imported by mistake).  Each cites the 1-based
+// file line of the first offender.  The wording is future tense
+// because warnings are shown in the confirmation dialog, before
+// anything has been imported.
 function parseGroups(text) {
   const importTime = Date.now();
   const groups = [];
+  const groupStartLines = []; // parallel to groups: 1-based first line
   let current = null;
+  let schemelessTabs = 0;
+  let firstSchemelessLine = 0;
+  let lineNo = 0;
 
   for (const rawLine of text.split(/\r?\n/)) {
+    lineNo++;
     const line = rawLine.trim();
 
     const header = line.match(/^Time created:(.*)$/);
@@ -146,6 +159,7 @@ function parseGroups(text) {
       const ms = Date.parse(header[1].trim());
       current = { created: Number.isNaN(ms) ? importTime : ms, tabs: [] };
       groups.push(current);
+      groupStartLines.push(lineNo);
       continue;
     }
 
@@ -159,22 +173,61 @@ function parseGroups(text) {
     if (current === null) {
       current = { created: importTime, tabs: [] };
       groups.push(current);
+      groupStartLines.push(lineNo);
     }
     const ws = line.search(/\s/);
     const url = ws === -1 ? line : line.slice(0, ws);
     const title = ws === -1 ? '' : line.slice(ws).trim();
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
+      schemelessTabs++;
+      if (firstSchemelessLine === 0) firstSchemelessLine = lineNo;
+    }
     current.tabs.push({ title, url });
   }
 
-  return groups.filter((g) => g.tabs.length > 0);
+  const kept = [];
+  let emptyGroups = 0;
+  let firstEmptyGroupLine = 0;
+  groups.forEach((g, i) => {
+    if (g.tabs.length > 0) {
+      kept.push(g);
+    } else {
+      emptyGroups++;
+      if (firstEmptyGroupLine === 0) firstEmptyGroupLine = groupStartLines[i];
+    }
+  });
+
+  // "(line 7)" for a single offender, "(first: line 7)" for several.
+  const at = (count, line) => (count === 1 ? `(line ${line})` : `(first: line ${line})`);
+
+  const warnings = [];
+  if (emptyGroups > 0) {
+    const it = emptyGroups === 1 ? 'it' : 'they';
+    warnings.push(
+      `${emptyGroups} group${emptyGroups === 1 ? '' : 's'} with no tabs ` +
+      `${at(emptyGroups, firstEmptyGroupLine)}; ${it} will be ignored`,
+    );
+  }
+  if (schemelessTabs > 0) {
+    const it = schemelessTabs === 1 ? 'it' : 'they';
+    warnings.push(
+      `${schemelessTabs} line${schemelessTabs === 1 ? '' : 's'} ` +
+      `${at(schemelessTabs, firstSchemelessLine)} ` +
+      `${schemelessTabs === 1 ? 'does' : 'do'} not look like a URL ` +
+      `(no scheme, e.g., "https:"); ${it} will be kept, but may not reopen`,
+    );
+  }
+  return { groups: kept, warnings };
 }
 
 // Parses import text and replaces the stored list, sorted newest-first
 // (the same order archiving maintains), regardless of the file's order.
+// Returns { groups, warnings } (see parseGroups).
 async function importGroups(text) {
-  const groups = parseGroups(text).sort((a, b) => b.created - a.created);
+  const { groups, warnings } = parseGroups(text);
+  groups.sort((a, b) => b.created - a.created);
   await saveGroups(groups);
-  return groups;
+  return { groups, warnings };
 }
 
 // The list page path is machine-specific and stored in local-config.json,
@@ -240,8 +293,16 @@ async function routeMessage(message, sender) {
     await exportDownload();
     return { ok: true };
   }
+  if (message.action === 'parseText') {
+    // Parse-only preview, so the list page can confirm an import with
+    // real numbers (and any warnings) before anything is replaced.
+    const { groups, warnings } = parseGroups(message.text);
+    const tabCount = groups.reduce((n, g) => n + g.tabs.length, 0);
+    return { ok: true, groupCount: groups.length, tabCount, warnings };
+  }
   if (message.action === 'importText') {
-    return { ok: true, groups: await importGroups(message.text) };
+    const { groups, warnings } = await importGroups(message.text);
+    return { ok: true, groups, warnings };
   }
   if (message.action === 'recall') {
     await recallGroup(message.id);

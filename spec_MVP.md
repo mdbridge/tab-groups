@@ -163,9 +163,16 @@ importing the list from a file.
 
   * Import opens a native "open file" dialog for the user to choose a
     file, then replaces the entire current list with its contents,
-    sorted newest-first (regardless of the file's order).  If the
-    current list is non-empty, the user is asked to confirm before it is
-    replaced.
+    sorted newest-first (regardless of the file's order).  The file is
+    parsed first, so the confirmation dialog shows real numbers -- e.g.,
+    "Replace the current 12 tab groups with the imported 43 groups (317
+    tabs)?" -- along with any parser warnings (see below).  Confirmation
+    is asked whenever the current list is non-empty or there are
+    warnings.  Importing a file with zero groups is allowed (it clears
+    the list; restoring a backup is the primary use of import).  After a
+    successful import the status line reports "Imported N groups (M
+    tabs)." (warnings are not repeated there: whenever there are any,
+    the confirmation already showed them and was approved).
 
 Export is performed by the background service worker via
 `chrome.downloads.download` with `saveAs: true`, which shows a native
@@ -182,7 +189,9 @@ a content script and silently fails in Edge.
 
 A status line under the toolbar reports errors -- e.g., a failed recall
 or import, or the extension not answering because it was reloaded out
-from under the page.  It is empty when there is nothing to report.
+from under the page -- and the result of an import.  It is cleared when
+a new action starts, so it always refers to the most recent action, and
+is empty when there is nothing to report.
 
 Typing Escape closes this page.
 
@@ -226,6 +235,19 @@ Parsing rules (lenient, to survive hand editing):
   * Tab lines with no preceding `Time created:` header (e.g., URLs pasted
     without one) form an implicit group at the import time, so they are
     not lost.
+
+Parsing also produces warnings for input that is discarded or looks
+wrong, shown in the import confirmation (which is always presented when
+there are warnings).  Each warning cites the file line of the first
+offender (e.g., "(line 7)", or "(first: line 7)" when there are
+several), and is worded in the future tense since it is shown before
+anything has been imported:
+
+  * groups with no tabs are ignored (with a warning), and
+
+  * tab lines whose URL has no scheme (e.g., a bare hostname, or a
+    non-export file imported by mistake) are kept anyway -- they may
+    simply fail to reopen on recall -- but draw a warning.
 
 The imported list is stored newest-first.  Because every group with a
 missing or unparseable timestamp takes the same import time, such groups

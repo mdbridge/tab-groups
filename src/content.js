@@ -46,6 +46,13 @@ function sendToBackground(message) {
   });
 }
 
+// Shows an informational message in the status line.
+function showStatus(text) {
+  if (!statusEl) return;
+  statusEl.textContent = text;
+  statusEl.classList.remove('error');
+}
+
 // Shows an error message in the status line.
 function showError(text) {
   if (!statusEl) return;
@@ -183,27 +190,44 @@ function doExport() {
 }
 
 // Imports a list from a user-chosen file, replacing the current list.
-// If the current list is non-empty, the user is asked to confirm first.
+// The file is parsed first so the confirmation can show real numbers
+// and any parser warnings; confirmation is asked whenever the current
+// list is non-empty or there are warnings.  An import of zero groups
+// is allowed (it clears the list).
 async function doImport() {
   clearStatus();
   const text = await pickFileText();
   if (text == null) return; // no file chosen
 
   try {
+    const parsed = await sendToBackground({ action: 'parseText', text });
     const existing = await sendToBackground({ action: 'getGroups' });
     const count = existing.groups.length;
-    if (count > 0) {
-      const s = count === 1 ? '' : 's';
-      if (!window.confirm(`Replace the current ${count} tab group${s} with the imported file?`)) {
-        return;
-      }
+
+    const what = `${parsed.groupCount} group${plural(parsed.groupCount)} ` +
+                 `(${parsed.tabCount} tab${plural(parsed.tabCount)})`;
+    let question = count > 0
+      ? `Replace the current ${count} tab group${plural(count)} with the imported ${what}?`
+      : `Import ${what}?`;
+    for (const warning of parsed.warnings) {
+      question += `\n\nWarning: ${warning}.`;
+    }
+    if ((count > 0 || parsed.warnings.length > 0) && !window.confirm(question)) {
+      return;
     }
 
+    // Warnings are not repeated here: whenever there are any, the
+    // confirmation above already showed them and was approved.
     const response = await sendToBackground({ action: 'importText', text });
     render(response.groups);
+    showStatus(`Imported ${what}.`);
   } catch (e) {
     showError(`Import failed: ${e.message}`);
   }
+}
+
+function plural(n) {
+  return n === 1 ? '' : 's';
 }
 
 // Reads a text file the user picks, using a plain file input (works in
