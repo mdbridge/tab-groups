@@ -3,6 +3,9 @@
 // can also operate on it.
 const root = document.getElementById('__tab_groups_root__');
 
+// The status line under the toolbar; recreated by each render().
+let statusEl = null;
+
 if (root) {
   // Marks that the content script has run on this page.
   root.setAttribute('data-content-script', 'ready');
@@ -12,13 +15,50 @@ if (root) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      chrome.runtime.sendMessage({ action: 'closeList' });
+      // If this succeeds the page is gone; if not there is no one to tell.
+      sendToBackground({ action: 'closeList' }).catch(() => {});
     }
   });
 
-  chrome.runtime.sendMessage({ action: 'getGroups' }, (response) => {
-    render(response?.groups || []);
+  sendToBackground({ action: 'getGroups' })
+    .then((response) => render(response.groups))
+    .catch((e) => {
+      render(null);
+      showError(`Cannot load tab groups: ${e.message}`);
+    });
+}
+
+// Sends a message to the background service worker and returns its
+// response.  Rejects if the extension did not answer (e.g., it was
+// reloaded and this page is orphaned) or refused ({ ok: false }, e.g.,
+// this page is not the configured list page).
+function sendToBackground(message) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else if (!response || response.ok !== true) {
+        reject(new Error(response?.error || 'no response from the extension'));
+      } else {
+        resolve(response);
+      }
+    });
   });
+}
+
+// Shows an error message in the status line.
+function showError(text) {
+  if (!statusEl) return;
+  statusEl.textContent = text;
+  statusEl.classList.add('error');
+}
+
+// Clears the status line.  Called when a new action starts, so that a
+// shown message always refers to the most recent action.
+function clearStatus() {
+  if (!statusEl) return;
+  statusEl.textContent = '';
+  statusEl.classList.remove('error');
 }
 
 function pad(n) {
@@ -36,6 +76,10 @@ function formatTime(ms) {
          `${h}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${ampm}`;
 }
 
+// Renders the page: header, toolbar, status line, and the group list.
+// Pass null to render only the frame with no list (e.g., when the
+// groups could not be loaded); the caller then reports why via
+// showError.
 function render(groups) {
   root.innerHTML = '';
 
@@ -55,6 +99,12 @@ function render(groups) {
   toolbar.appendChild(importLink);
 
   root.appendChild(toolbar);
+
+  statusEl = document.createElement('div');
+  statusEl.className = 'status';
+  root.appendChild(statusEl);
+
+  if (groups === null) return;
 
   if (groups.length === 0) {
     const empty = document.createElement('p');
@@ -103,9 +153,10 @@ function renderGroup(group) {
   recall.textContent = 'Recall';
   recall.addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.runtime.sendMessage({ action: 'recall', id: group.id }, (response) => {
-      render(response?.groups || []);
-    });
+    clearStatus();
+    sendToBackground({ action: 'recall', id: group.id })
+      .then((response) => render(response.groups))
+      .catch((err) => showError(`Recall failed: ${err.message}`));
   });
   header.appendChild(recall);
 
@@ -126,26 +177,33 @@ function renderGroup(group) {
 // both Chrome and Edge -- the File System Access API is not dependable
 // from a content script (e.g., it silently fails in Edge).
 function doExport() {
-  chrome.runtime.sendMessage({ action: 'export' });
+  clearStatus();
+  sendToBackground({ action: 'export' })
+    .catch((e) => showError(`Export failed: ${e.message}`));
 }
 
 // Imports a list from a user-chosen file, replacing the current list.
 // If the current list is non-empty, the user is asked to confirm first.
 async function doImport() {
+  clearStatus();
   const text = await pickFileText();
   if (text == null) return; // no file chosen
 
-  const existing = await chrome.runtime.sendMessage({ action: 'getGroups' });
-  const count = existing?.groups?.length ?? 0;
-  if (count > 0) {
-    const s = count === 1 ? '' : 's';
-    if (!window.confirm(`Replace the current ${count} tab group${s} with the imported file?`)) {
-      return;
+  try {
+    const existing = await sendToBackground({ action: 'getGroups' });
+    const count = existing.groups.length;
+    if (count > 0) {
+      const s = count === 1 ? '' : 's';
+      if (!window.confirm(`Replace the current ${count} tab group${s} with the imported file?`)) {
+        return;
+      }
     }
-  }
 
-  const response = await chrome.runtime.sendMessage({ action: 'importText', text });
-  render(response?.groups || []);
+    const response = await sendToBackground({ action: 'importText', text });
+    render(response.groups);
+  } catch (e) {
+    showError(`Import failed: ${e.message}`);
+  }
 }
 
 // Reads a text file the user picks, using a plain file input (works in

@@ -210,11 +210,13 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Responses are always async (the sender is validated via a storage
-  // read), so keep the port open and reply once routeMessage resolves.
-  // Only actions that produce a response call sendResponse.
-  routeMessage(message, sender).then((response) => {
-    if (response !== undefined) sendResponse(response);
-  });
+  // read), so keep the port open and reply once routeMessage settles.
+  // Every message gets a response -- { ok: true, ... } on success,
+  // { ok: false, error } on refusal or failure -- so a sender never
+  // hangs waiting on a silently-dropped port.
+  routeMessage(message, sender)
+    .then(sendResponse)
+    .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
   return true;
 });
 
@@ -223,30 +225,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // file:// path ending in the list-page name, so a stray or malicious
 // local file with a matching name would get our content script injected;
 // this guard stops such a page from reading or replacing the user's tab
-// groups.  Returns a response object, or undefined when none is needed.
+// groups.  Returns a response object: { ok: true, ... } on success,
+// { ok: false, error } on refusal.
 async function routeMessage(message, sender) {
   const listPageUrl = await getListPageUrl();
-  if (!isOwnUrl(sender.url, listPageUrl)) return undefined;
+  if (!isOwnUrl(sender.url, listPageUrl)) {
+    return { ok: false, error: 'sender is not the tab groups list page' };
+  }
 
   if (message.action === 'getGroups') {
-    return { groups: await getGroups() };
+    return { ok: true, groups: await getGroups() };
   }
   if (message.action === 'export') {
     await exportDownload();
-    return undefined;
+    return { ok: true };
   }
   if (message.action === 'importText') {
-    return { groups: await importGroups(message.text) };
+    return { ok: true, groups: await importGroups(message.text) };
   }
   if (message.action === 'recall') {
     await recallGroup(message.id);
-    return { groups: await getGroups() };
+    return { ok: true, groups: await getGroups() };
   }
   if (message.action === 'closeList') {
-    if (sender.tab?.id != null) chrome.tabs.remove(sender.tab.id);
-    return undefined;
+    // The tab may already be closing; that is fine.
+    if (sender.tab?.id != null) await chrome.tabs.remove(sender.tab.id).catch(() => {});
+    return { ok: true };
   }
-  return undefined;
+  return { ok: false, error: `unknown action: ${message.action}` };
 }
 
 // Recalls a group: opens a new focused window containing its tabs, in

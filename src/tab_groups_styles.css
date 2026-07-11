@@ -31,10 +31,24 @@ a:hover {
 .toolbar {
   display: flex;
   gap: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 4px;
   padding-bottom: 12px;
   border-bottom: 1px solid #e0e0e0;
   font-size: 14px;
+}
+
+/* Status line under the toolbar: reports errors (and, later, import/
+   export results).  Reserves its height even when empty so the list
+   does not jump when a message appears. */
+.status {
+  font-size: 13px;
+  color: #5f6368;
+  min-height: 20px;
+  margin-bottom: 12px;
+}
+
+.status.error {
+  color: #c5221f;
 }
 
 .empty {
@@ -113,8 +127,13 @@ a:hover {
   }
 
   .empty,
-  .group-count {
+  .group-count,
+  .status {
     color: #9aa0a6;
+  }
+
+  .status.error {
+    color: #f28b82;
   }
 
   .tab-group {

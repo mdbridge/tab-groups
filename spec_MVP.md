@@ -42,9 +42,10 @@ In particular:
   * The content script communicates with the background service worker
     via `chrome.runtime.sendMessage`; the service worker performs all
     privileged operations (querying tabs/windows, closing windows,
-    creating windows, reading/writing storage).  The worker ignores
-    messages whose sender is not the configured list page (or one of the
-    extension's own pages).
+    creating windows, reading/writing storage).  Every message gets a
+    response: `{ ok: true, ... }` on success, `{ ok: false, error }` on
+    refusal or failure.  The worker refuses messages whose sender is not
+    the configured list page (or one of the extension's own pages).
 
   * If `local-config.json` has not been generated yet, the global
     commands open a static `setup-required.html` extension page instead,
@@ -178,6 +179,10 @@ permission).  Import uses a plain `<input type="file">` picker in the
 content script.  The File System Access API (`showSaveFilePicker` /
 `showOpenFilePicker`) is deliberately avoided: it is not dependable from
 a content script and silently fails in Edge.
+
+A status line under the toolbar reports errors -- e.g., a failed recall
+or import, or the extension not answering because it was reloaded out
+from under the page.  It is empty when there is nothing to report.
 
 Typing Escape closes this page.
 
