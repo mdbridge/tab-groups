@@ -99,7 +99,9 @@ rebind these on the browser's extension shortcuts page.)
 Archiving the current browser window:
 
   1. Collects every tab in that window, in order, recording each tab's
-     title and URL.
+     title and URL.  A tab whose navigation has not yet committed (its
+     `url` is still empty) is recorded by its `pendingUrl`; a tab with
+     neither is skipped, since a blank URL could not be reopened.
 
   2. Skips only this extension's own UI pages -- i.e., the tab groups
      list page (`file:///...`) and, if present, the setup page.  All

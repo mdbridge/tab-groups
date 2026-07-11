@@ -48,6 +48,47 @@ test('archiving a window stores its tabs in order, skips own pages, closes it', 
   expect(typeof result.groups[0].created).toBe('number');
 });
 
+// A tab whose navigation has not yet committed has an empty url and the
+// real target in pendingUrl; archiving must record the pending URL, not
+// a blank.  A tab with neither (rare) is skipped.  Chrome window state
+// is stubbed because a reliably-pending navigation cannot be staged.
+test('archiving records pendingUrl for tabs that have not committed', async ({
+  serviceWorker,
+}) => {
+  const groups = await serviceWorker.evaluate(async () => {
+    await saveGroups([]);
+    const origGet = chrome.windows.get;
+    const origGetAll = chrome.windows.getAll;
+    const origRemove = chrome.windows.remove;
+    chrome.windows.get = () =>
+      Promise.resolve({
+        id: 999,
+        tabs: [
+          { title: 'Committed', url: 'https://a.example/' },
+          { title: '', url: '', pendingUrl: 'https://pending.example/' },
+          { title: 'no url at all' },
+        ],
+      });
+    chrome.windows.getAll = () =>
+      Promise.resolve([{ type: 'normal' }, { type: 'normal' }]);
+    chrome.windows.remove = () => Promise.resolve();
+    try {
+      await archiveWindow(999);
+    } finally {
+      chrome.windows.get = origGet;
+      chrome.windows.getAll = origGetAll;
+      chrome.windows.remove = origRemove;
+    }
+    return getGroups();
+  });
+
+  expect(groups).toHaveLength(1);
+  expect(groups[0].tabs).toEqual([
+    { title: 'Committed', url: 'https://a.example/' },
+    { title: '', url: 'https://pending.example/' },
+  ]);
+});
+
 // A window containing only this extension's own pages has nothing to
 // record, but is still closed (for consistency); no group is created.
 test('archiving a window of only own pages closes it without a group', async ({

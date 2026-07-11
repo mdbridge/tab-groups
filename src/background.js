@@ -468,9 +468,12 @@ async function archiveWindow(windowId) {
     : await chrome.windows.get(windowId, { populate: true });
 
   const listPageUrl = await getListPageUrl();
+  // A tab whose navigation has not yet committed has an empty url and
+  // the real target in pendingUrl.  A tab with neither (rare) is
+  // skipped: a blank URL could not be reopened anyway.
   const tabs = (win.tabs || [])
-    .filter((t) => !isOwnUrl(t.url, listPageUrl))
-    .map((t) => ({ title: t.title, url: t.url }));
+    .map((t) => ({ title: t.title, url: t.url || t.pendingUrl || '' }))
+    .filter((t) => t.url && !isOwnUrl(t.url, listPageUrl));
 
   // A window of only our own pages has nothing to record, but is still
   // closed below for consistency.
