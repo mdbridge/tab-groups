@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Groups",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "description": "Archive browser windows' tabs into recallable tab groups, suitable for control by voice.",
   "background": {
     "service_worker": "src/background.js"
@@ -24,7 +24,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["file:///*tab_groups_list_page.html*"],
+      "matches": ["file:///*/tab_groups_list_page.html"],
       "js": ["src/content.js"]
     }
   ],

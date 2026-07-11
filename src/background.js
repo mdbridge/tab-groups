@@ -363,12 +363,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // Verifies the message came from our own list page (or one of our own
-// extension pages) and dispatches it.  The content script matches any
-// file:// path ending in the list-page name, so a stray or malicious
-// local file with a matching name would get our content script injected;
-// this guard stops such a page from reading or replacing the user's tab
-// groups.  Returns a response object: { ok: true, ... } on success,
-// { ok: false, error } on refusal.
+// extension pages) and dispatches it.  The content script matches the
+// list-page file name in any directory, so a stray or malicious local
+// file with that exact name would still get our content script
+// injected; this guard stops such a page from reading or replacing the
+// user's tab groups.  Returns a response object: { ok: true, ... } on
+// success, { ok: false, error } on refusal.
 async function routeMessage(message, sender) {
   const listPageUrl = await getListPageUrl();
   if (!isOwnUrl(sender.url, listPageUrl)) {

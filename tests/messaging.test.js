@@ -85,6 +85,34 @@ test('the status line clears when a new action starts', async ({
   await expect(listPage.locator('.status')).not.toHaveClass(/error/);
 });
 
+// The match pattern requires the exact file name (in any directory):
+// a file that merely ends in the list-page name must not get the
+// content script injected at all.
+test('a file merely ending in the list-page name gets no content script', async ({
+  context,
+}) => {
+  const dir = await mkdtemp(join(tmpdir(), 'tab-groups-evil-'));
+  try {
+    const copyPath = join(dir, 'evil_tab_groups_list_page.html');
+    await copyFile(listPageSource, copyPath);
+
+    const page = await context.newPage();
+    await page.goto(pathToFileURL(copyPath).href);
+
+    // Proving a negative: give injection ample time, then confirm the
+    // content script's ready marker never appeared.
+    await page.waitForTimeout(1000);
+    await expect(
+      page.locator('#__tab_groups_root__[data-content-script="ready"]'),
+    ).toHaveCount(0);
+    // The static "Loading..." shell is all that renders.
+    await expect(page.locator('.toolbar')).toHaveCount(0);
+  } finally {
+    // Windows can briefly hold files open after close, so retry.
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+});
+
 // A failure inside a background handler must reach the list page as a
 // visible error, not hang the page on "Loading..." or fail silently.
 test('a background failure is shown on the list page', async ({

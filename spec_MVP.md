@@ -37,7 +37,10 @@ In particular:
     from a `file:///` URL.  The absolute path is machine specific and is
     written to `local-config.json` by `setup.bat`, exactly as in the
     menu extension.  A content script matches that `file:///` URL and
-    does all of the UI work.
+    does all of the UI work.  The match pattern requires the exact file
+    name `tab_groups_list_page.html` (in any directory, since the path
+    is machine specific), with no query or fragment -- the list page is
+    never opened with either.
 
   * The content script communicates with the background service worker
     via `chrome.runtime.sendMessage`; the service worker performs all
