@@ -163,7 +163,12 @@ importing the list from a file.
   * Export opens a native "save file" dialog so the user chooses where
     to write the file, then writes the current list there as text (see
     format below).  The dialog is pre-filled with a suggested name like
-    `tab-groups-07-03-2026.txt`.
+    `tab-groups-07-03-2026.txt`.  The status line then reports
+    "Exported N groups.", "Export canceled." (the dialog was dismissed),
+    or the error if the download failed.  Both cancel signatures are
+    recognized: Chrome fails the `download()` call itself, while Edge
+    lets it succeed and ends the download interrupted with
+    `USER_CANCELED`.
 
   * Import opens a native "open file" dialog for the user to choose a
     file, then replaces the entire current list with its contents,
@@ -186,7 +191,11 @@ Export is performed by the background service worker via
 overflows Chrome's ~2 MB URL-length limit for large lists (a 10,000-tab
 list is ~1.3x over), the file is handed to the download as a short
 `blob:` URL built in an offscreen document (this needs the `offscreen`
-permission).  Import uses a plain `<input type="file">` picker in the
+permission).  The offscreen document -- whose lifetime is the blob's
+lifetime -- is closed only once the download reaches a terminal state
+(complete or interrupted) and no other export is still running, since
+closing it earlier could revoke the blob while a large download is
+still reading it.  Import uses a plain `<input type="file">` picker in the
 content script.  The File System Access API (`showSaveFilePicker` /
 `showOpenFilePicker`) is deliberately avoided: it is not dependable from
 a content script and silently fails in Edge.

@@ -88,24 +88,71 @@ function exportFilename() {
 // in an offscreen document rather than a data: URL: a service worker
 // cannot call URL.createObjectURL, and a data: URL of the whole list
 // overflows Chrome's ~2 MB URL-length limit for large lists.
+//
+// The offscreen document (and thus the blob) is kept alive until the
+// download reaches a terminal state -- closing it earlier could revoke
+// the blob while a large download is still reading it -- and until no
+// other export is still running.  Returns { status: 'exported',
+// groupCount } or { status: 'canceled' }; failures throw.
+let activeExports = 0;
+
 async function exportDownload() {
-  const text = serializeGroups(await getGroups());
-  const url = await createExportBlobUrl(text);
-  if (!url) return; // offscreen document unavailable; nothing to download
+  const groups = await getGroups();
+  const text = serializeGroups(groups);
+  activeExports++;
   try {
-    // With saveAs:true this resolves only once the user has dismissed the
-    // Save As dialog and the download has begun reading the blob, so it is
-    // safe to free the blob (closeOffscreenDocument) afterwards.
-    await chrome.downloads.download({ url, filename: exportFilename(), saveAs: true });
-  } catch {
-    // The user canceled the Save As dialog, or the download failed.
+    const url = await createExportBlobUrl(text);
+    let id;
+    try {
+      // With saveAs:true this settles only once the user has dismissed
+      // the Save As dialog.
+      id = await chrome.downloads.download({ url, filename: exportFilename(), saveAs: true });
+    } catch (e) {
+      // Chrome reports a canceled Save As dialog by failing the
+      // download() call itself.
+      if (/canceled/i.test(String(e?.message ?? e))) return { status: 'canceled' };
+      throw e;
+    }
+    const state = await waitForDownloadCompletion(id);
+    if (state !== 'complete') {
+      // Edge reports a canceled Save As dialog differently: download()
+      // succeeds and the download then ends interrupted with
+      // USER_CANCELED.
+      const [item] = await chrome.downloads.search({ id });
+      if (item?.error === 'USER_CANCELED') return { status: 'canceled' };
+      throw new Error(`the download was interrupted (${item?.error || 'unknown reason'})`);
+    }
+    return { status: 'exported', groupCount: groups.length };
   } finally {
-    await closeOffscreenDocument();
+    activeExports--;
+    if (activeExports === 0) await closeOffscreenDocument();
   }
 }
 
-// Builds a blob: URL for the export text inside an offscreen document (see
-// offscreen.js).  Returns null if the offscreen document cannot be used.
+// Waits for the download to reach a terminal state; resolves to
+// 'complete' or 'interrupted'.
+function waitForDownloadCompletion(downloadId) {
+  return new Promise((resolve) => {
+    function settle(state) {
+      if (state === 'complete' || state === 'interrupted') {
+        chrome.downloads.onChanged.removeListener(onChanged);
+        resolve(state);
+      }
+    }
+    function onChanged(delta) {
+      if (delta.id === downloadId) settle(delta.state?.current);
+    }
+    chrome.downloads.onChanged.addListener(onChanged);
+    // The download may already have finished before the listener was
+    // added; check once.  (Both paths may settle; the second is a no-op.)
+    chrome.downloads.search({ id: downloadId }).then((results) => {
+      settle(results[0]?.state);
+    });
+  });
+}
+
+// Builds a blob: URL for the export text inside an offscreen document
+// (see offscreen.js).  Throws if the offscreen document cannot be used.
 async function createExportBlobUrl(text) {
   await ensureOffscreenDocument();
   const res = await chrome.runtime.sendMessage({
@@ -113,16 +160,28 @@ async function createExportBlobUrl(text) {
     type: 'createBlobUrl',
     text,
   });
-  return res?.url || null;
+  if (!res?.url) throw new Error('could not build a blob: URL for the export');
+  return res.url;
 }
+
+// Guarded by a cached creation promise: concurrent callers must not
+// both call createDocument (Chrome allows only one offscreen document).
+let offscreenCreation = null;
 
 async function ensureOffscreenDocument() {
   if (await chrome.offscreen.hasDocument()) return;
-  await chrome.offscreen.createDocument({
-    url: 'src/offscreen.html',
-    reasons: ['BLOBS'],
-    justification: 'Build a blob: URL so large exports are not capped by data: URL length.',
-  });
+  if (!offscreenCreation) {
+    offscreenCreation = chrome.offscreen
+      .createDocument({
+        url: 'src/offscreen.html',
+        reasons: ['BLOBS'],
+        justification: 'Build a blob: URL so large exports are not capped by data: URL length.',
+      })
+      .finally(() => {
+        offscreenCreation = null;
+      });
+  }
+  await offscreenCreation;
 }
 
 async function closeOffscreenDocument() {
@@ -310,8 +369,7 @@ async function routeMessage(message, sender) {
     return { ok: true, groups: await getGroups() };
   }
   if (message.action === 'export') {
-    await exportDownload();
-    return { ok: true };
+    return { ok: true, ...(await exportDownload()) };
   }
   if (message.action === 'parseText') {
     // Parse-only preview, so the list page can confirm an import with

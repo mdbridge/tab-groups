@@ -186,6 +186,13 @@ function renderGroup(group) {
 function doExport() {
   clearStatus();
   sendToBackground({ action: 'export' })
+    .then((response) => {
+      if (response.status === 'exported') {
+        showStatus(`Exported ${response.groupCount} group${plural(response.groupCount)}.`);
+      } else {
+        showStatus('Export canceled.');
+      }
+    })
     .catch((e) => showError(`Export failed: ${e.message}`));
 }
 
