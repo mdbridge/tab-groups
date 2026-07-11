@@ -323,22 +323,32 @@ async function getListPageUrl() {
   }
 }
 
-chrome.commands.onCommand.addListener(async (command, tab) => {
-  // Nothing works until setup.bat has generated local-config.json, so open
-  // the setup page instead of doing part of a command -- e.g., archiving
-  // and closing a window with nowhere to show the result, or (if it was
-  // the last window) quitting the browser.
-  const listPageUrl = await getListPageUrl();
-  if (!listPageUrl) {
-    chrome.tabs.create({ url: chrome.runtime.getURL('setup-required.html') });
-    return;
+chrome.commands.onCommand.addListener(handleCommand);
+
+// Handles a global keyboard command.  Failures -- e.g., the active
+// window closing between the keypress and the handler running -- are
+// logged rather than left as unhandled rejections; a command has no UI
+// surface to report to.
+async function handleCommand(command, tab) {
+  try {
+    // Nothing works until setup.bat has generated local-config.json, so
+    // open the setup page instead of doing part of a command -- e.g.,
+    // archiving and closing a window with nowhere to show the result,
+    // or (if it was the last window) quitting the browser.
+    const listPageUrl = await getListPageUrl();
+    if (!listPageUrl) {
+      await chrome.tabs.create({ url: chrome.runtime.getURL('setup-required.html') });
+      return;
+    }
+    if (command === 'open-list') await openList();
+    // tab is the active tab when the shortcut fired; its window is the
+    // one to archive.  getLastFocused (the fallback) can pick the wrong
+    // window when several are open.
+    if (command === 'archive-window') await archiveWindow(tab?.windowId);
+  } catch (e) {
+    console.error(`command "${command}" failed:`, e);
   }
-  if (command === 'open-list') openList();
-  // tab is the active tab when the shortcut fired; its window is the one
-  // to archive.  getLastFocused (the fallback) can pick the wrong window
-  // when several are open.
-  if (command === 'archive-window') archiveWindow(tab?.windowId);
-});
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Responses are always async (the sender is validated via a storage
