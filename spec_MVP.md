@@ -64,6 +64,10 @@ We have a list of tab groups.  Each tab group contains:
   * an ordered list of tabs, each of which has a title and a URL.
 
 The list is stored in `chrome.storage.local` (persistent, not synced).
+Mutations of the stored list are read-modify-write, so the service
+worker serializes them (a promise-chain lock); otherwise overlapping
+operations -- e.g., two quick recalls, or an archive landing during a
+recall -- could lose or resurrect groups.
 
 Notes:
 

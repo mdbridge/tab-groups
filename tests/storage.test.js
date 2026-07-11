@@ -25,6 +25,29 @@ test('storage helpers prepend newest-first and remove by id', async ({
   expect(result.afterRemove.map((g) => g.created)).toEqual([2]);
 });
 
+// Mutations are read-modify-write (get the list, change it, set it), so
+// overlapping ones must be serialized or a save can clobber another's
+// result -- e.g., two quick Recall clicks removing group A and group B
+// could resurrect A by saving a list that still contains it.
+test('concurrent mutations neither lose nor resurrect groups', async ({
+  serviceWorker,
+}) => {
+  const ids = await serviceWorker.evaluate(async () => {
+    await saveGroups([
+      { id: 'a', created: 1, tabs: [{ title: 'a', url: 'https://a/' }] },
+      { id: 'b', created: 2, tabs: [{ title: 'b', url: 'https://b/' }] },
+    ]);
+    await Promise.all([
+      removeGroup('a'),
+      removeGroup('b'),
+      prependGroup({ id: 'c', created: 3, tabs: [{ title: 'c', url: 'https://c/' }] }),
+    ]);
+    return (await getGroups()).map((g) => g.id);
+  });
+
+  expect(ids).toEqual(['c']);
+});
+
 test('groups persist across a browser restart', async () => {
   test.setTimeout(30000);
   const userDataDir = await mkdtemp(join(tmpdir(), 'tab-groups-test-'));

@@ -12,6 +12,20 @@ async function getGroups() {
   return data[STORAGE_KEY] || [];
 }
 
+// Mutations are read-modify-write (get the list, change it, set it), so
+// overlapping ones -- e.g., two quick Recall clicks, or an archive
+// landing during a recall -- could clobber each other's saves, losing
+// or resurrecting groups.  This promise chain serializes them.  It is
+// per-service-worker-instance, which suffices: a mutation runs entirely
+// within one instance's lifetime.
+let storageLock = Promise.resolve();
+
+function withStorageLock(fn) {
+  const run = storageLock.then(fn);
+  storageLock = run.then(() => {}, () => {}); // keep the chain alive past failures
+  return run;
+}
+
 async function saveGroups(groups) {
   // Every group needs a stable unique id: creation times are not unique
   // (e.g., undated imported groups all share the import time), so they
@@ -22,22 +36,26 @@ async function saveGroups(groups) {
   await chrome.storage.local.set({ [STORAGE_KEY]: groups });
 }
 
-async function prependGroup(group) {
-  const groups = await getGroups();
-  groups.unshift(group);
-  await saveGroups(groups);
-  return groups;
+function prependGroup(group) {
+  return withStorageLock(async () => {
+    const groups = await getGroups();
+    groups.unshift(group);
+    await saveGroups(groups);
+    return groups;
+  });
 }
 
 // Removes the group with the given id.
-async function removeGroup(id) {
-  const groups = await getGroups();
-  const idx = groups.findIndex((g) => g.id === id);
-  if (idx !== -1) {
-    groups.splice(idx, 1);
-    await saveGroups(groups);
-  }
-  return groups;
+function removeGroup(id) {
+  return withStorageLock(async () => {
+    const groups = await getGroups();
+    const idx = groups.findIndex((g) => g.id === id);
+    if (idx !== -1) {
+      groups.splice(idx, 1);
+      await saveGroups(groups);
+    }
+    return groups;
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -226,7 +244,9 @@ function parseGroups(text) {
 async function importGroups(text) {
   const { groups, warnings } = parseGroups(text);
   groups.sort((a, b) => b.created - a.created);
-  await saveGroups(groups);
+  // The replace is not itself read-modify-write, but taking the lock
+  // orders it against any in-flight mutation's save.
+  await withStorageLock(() => saveGroups(groups));
   return { groups, warnings };
 }
 
