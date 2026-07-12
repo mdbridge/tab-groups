@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Archive box with a downward arrow: lid, body, white arrow. -->
+  <!-- To regenerate icon{16,32,48,128}.png: load this file in a page
+       sized to <size>x<size> (svg at width:100vw;height:100vh) and
+       screenshot with a transparent background -- e.g., Playwright's
+       chromium with page.screenshot({ omitBackground: true }). -->
+  <rect x="12" y="18" width="104" height="24" rx="6" fill="#3b6ea5"/>
+  <rect x="20" y="48" width="88" height="62" rx="8" fill="#3b6ea5"/>
+  <path d="M64 98 L40 74 H54 V58 H74 V74 H88 Z" fill="#ffffff"/>
+</svg>

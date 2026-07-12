@@ -236,6 +236,17 @@ async function handleCommand(command, tab) {
   }
 }
 
+chrome.action.onClicked.addListener(handleActionClick);
+
+// Clicking the toolbar (action) button archives the window it was
+// clicked in.  Exactly the archive-window command's code path,
+// including the setup-required fallback and the open-the-list-page
+// behavior when it is the last window.  tab is the active tab of the
+// clicked window, the same shape onCommand supplies.
+function handleActionClick(tab) {
+  return handleCommand('archive-window', tab);
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Responses are always async (the sender is validated via a storage
   // read), so keep the port open and reply once routeMessage settles.
