@@ -87,6 +87,15 @@ Details:
   * After a discard the status line shows "Discarded 1 group (N
     tabs)." and the list re-renders.
 
+  * If the group turns out to be already gone when the discard lands
+    -- e.g., it was discarded from another list page while the confirm
+    dialog was up, or the link was double-clicked -- the status line
+    instead shows "That group was already removed." as an
+    informational (non-error) message.  This case is reliably
+    reachable, not just a race: the confirm dialog blocks the page's
+    event loop, so the stale re-render cannot arrive before the
+    already-confirmed discard is sent.
+
 
 ## Adding favicons to tab groups list
 

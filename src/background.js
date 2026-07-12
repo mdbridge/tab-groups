@@ -49,7 +49,9 @@ function prependGroup(group) {
   });
 }
 
-// Removes the group with the given id.
+// Removes the group with the given id.  Returns { groups, removed };
+// removed is false when no group had that id (e.g., it was already
+// discarded from another list page).
 function removeGroup(id) {
   return withStorageLock(async () => {
     const groups = await getGroups();
@@ -58,7 +60,7 @@ function removeGroup(id) {
       groups.splice(idx, 1);
       await saveGroups(groups);
     }
-    return groups;
+    return { groups, removed: idx !== -1 };
   });
 }
 
@@ -292,6 +294,14 @@ async function routeMessage(message, sender) {
   if (message.action === 'recall') {
     await recallGroup(message.id);
     return { ok: true, groups: await getGroups() };
+  }
+  if (message.action === 'discard') {
+    // Removes the group without opening its tabs.  Permanent: unlike
+    // recall, nothing of the group survives.  removed tells the page
+    // whether anything was actually discarded, so it does not report a
+    // discard that had already happened elsewhere.
+    const { groups, removed } = await removeGroup(message.id);
+    return { ok: true, groups, removed };
   }
   if (message.action === 'closeList') {
     // The tab may already be closing; that is fine.

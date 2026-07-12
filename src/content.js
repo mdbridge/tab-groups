@@ -182,6 +182,34 @@ function renderGroup(group) {
   });
   header.appendChild(recall);
 
+  // Discard permanently removes the group without opening its tabs, so
+  // it asks for confirmation first (recall does not: nothing is lost).
+  const discard = document.createElement('a');
+  discard.className = 'discard';
+  discard.href = '#';
+  discard.textContent = 'Discard';
+  discard.addEventListener('click', (e) => {
+    e.preventDefault();
+    clearStatus();
+    const n = group.tabs.length;
+    const tabsText = `${n} tab${plural(n)}`;
+    const question =
+      `Discard the group from ${formatDisplayTime(group.created)} (${tabsText})?`;
+    if (!window.confirm(question)) return;
+    sendToBackground({ action: 'discard', id: group.id })
+      .then((response) => {
+        render(response.groups);
+        // removed is false when the group was already gone -- e.g.,
+        // discarded from another list page while the confirm dialog
+        // was up.  Saying "Discarded" then would be false.
+        showStatus(response.removed
+          ? `Discarded 1 group (${tabsText}).`
+          : 'That group was already removed.');
+      })
+      .catch((err) => showError(`Discard failed: ${err.message}`));
+  });
+  header.appendChild(discard);
+
   section.appendChild(header);
 
   const ul = document.createElement('ul');
