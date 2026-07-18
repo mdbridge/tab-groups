@@ -303,6 +303,13 @@ async function routeMessage(message, sender) {
     const { groups, removed } = await removeGroup(message.id);
     return { ok: true, groups, removed };
   }
+  if (message.action === 'archiveAllPreview') {
+    return { ok: true, ...(await archiveAllPreview()) };
+  }
+  if (message.action === 'archiveAll') {
+    const counts = await archiveAll(sender.tab?.id);
+    return { ok: true, groups: await getGroups(), ...counts };
+  }
   if (message.action === 'closeList') {
     // The tab may already be closing; that is fine.
     if (sender.tab?.id != null) await chrome.tabs.remove(sender.tab.id).catch(() => {});
@@ -385,12 +392,7 @@ async function archiveWindow(windowId) {
     : await chrome.windows.get(windowId, { populate: true });
 
   const listPageUrl = await getListPageUrl();
-  // A tab whose navigation has not yet committed has an empty url and
-  // the real target in pendingUrl.  A tab with neither (rare) is
-  // skipped: a blank URL could not be reopened anyway.
-  const tabs = (win.tabs || [])
-    .map((t) => ({ title: t.title, url: t.url || t.pendingUrl || '' }))
-    .filter((t) => t.url && !isOwnUrl(t.url, listPageUrl));
+  const tabs = collectTabs(win, listPageUrl);
 
   // A window of only our own pages has nothing to record, but is still
   // closed below for consistency.
@@ -404,4 +406,92 @@ async function archiveWindow(windowId) {
   }
 
   await chrome.windows.remove(win.id);
+}
+
+// Collects the tabs of a window worth recording, per the archiving
+// rules.  A tab whose navigation has not yet committed has an empty
+// url and the real target in pendingUrl.  A tab with neither (rare)
+// is skipped: a blank URL could not be reopened anyway.  This
+// extension's own pages are skipped too.
+function collectTabs(win, listPageUrl) {
+  return (win.tabs || [])
+    .map((t) => ({ title: t.title, url: t.url || t.pendingUrl || '' }))
+    .filter((t) => t.url && !isOwnUrl(t.url, listPageUrl));
+}
+
+// Counts what archive all would touch, changing nothing: every normal
+// window, the recordable tabs, and the groups that would be produced.
+// A window with nothing recordable (e.g., one holding just this list
+// page) adds to windowCount but not groupCount.  The group and tab
+// counts are computed the same way the completion message's are, so
+// the confirmation and completion numbers agree.
+async function archiveAllPreview() {
+  const listPageUrl = await getListPageUrl();
+  const wins = (await chrome.windows.getAll({ populate: true }))
+    .filter((w) => w.type === 'normal');
+  const tabCounts = wins.map((w) => collectTabs(w, listPageUrl).length);
+  return {
+    windowCount: wins.length,
+    tabCount: tabCounts.reduce((sum, n) => sum + n, 0),
+    groupCount: tabCounts.filter((n) => n > 0).length,
+  };
+}
+
+// Archives every normal window as its own group, in enumeration order,
+// and closes it -- except the sender's window, which survives: its
+// other tabs are archived into its group and closed, but the sender
+// (list page) tab stays, so a window holding just the tab groups list
+// remains at the end.  Popup/DevTools/app windows are untouched.  A
+// window with nothing recordable is closed without a group, as in
+// single-window archiving.  Returns how many groups were saved and how
+// many tabs they contain.
+async function archiveAll(senderTabId) {
+  const listPageUrl = await getListPageUrl();
+  // The snapshot is only an enumeration; each window is re-fetched at
+  // its archive time below.
+  const snapshot = (await chrome.windows.getAll({ populate: true }))
+    .filter((w) => w.type === 'normal');
+
+  const senderInSnapshot = snapshot.some((w) =>
+    (w.tabs || []).some((t) => t.id === senderTabId));
+  // Coming from the list page there is always a sender window; if not
+  // (defensive), every window will close, so open a list page first
+  // to keep Chrome alive -- as single-window archiving does.  (This
+  // new window is not in the snapshot, so the loop leaves it alone.)
+  if (!senderInSnapshot && listPageUrl) {
+    await chrome.windows.create({ url: listPageUrl });
+  }
+
+  let groupCount = 0;
+  let tabCount = 0;
+  for (const snap of snapshot) {
+    // Re-fetch at archive time, exactly as archiving one window does:
+    // a tab opened since the snapshot must be recorded, not silently
+    // closed with its window.  A window closed since the snapshot is
+    // a success for this operation, not a failure -- skip it and keep
+    // going rather than aborting the remaining windows.
+    let win;
+    try {
+      win = await chrome.windows.get(snap.id, { populate: true });
+    } catch {
+      continue;
+    }
+    const tabs = collectTabs(win, listPageUrl);
+    if (tabs.length > 0) {
+      await prependGroup({ created: Date.now(), tabs });
+      groupCount++;
+      tabCount += tabs.length;
+    }
+    if ((win.tabs || []).some((t) => t.id === senderTabId)) {
+      // The sender's window survives; close its other (now archived)
+      // tabs.  One at a time: a tab the user closed meanwhile must
+      // not abort closing the rest.
+      for (const t of win.tabs) {
+        if (t.id !== senderTabId) await chrome.tabs.remove(t.id).catch(() => {});
+      }
+    } else {
+      await chrome.windows.remove(win.id).catch(() => {});
+    }
+  }
+  return { groupCount, tabCount };
 }

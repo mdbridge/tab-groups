@@ -26,7 +26,12 @@ Details:
     window with nothing recordable is closed without creating a group.
 
   * A confirmation dialog is shown first, with real counts gathered
-    before anything closes: "Archive all N windows (M tabs)?"
+    before anything closes: "Archive all N windows, saving M tabs in G
+    groups?"  N counts every normal window; M and G count the tabs
+    that would be recorded and the groups they would form, the same
+    way the completion message counts (see below), so those numbers
+    agree.  A window with nothing recordable -- such as one holding
+    only the list page itself -- appears in N but not G.
 
   * Windows are archived one at a time in Chrome's enumeration order;
     the resulting groups stack at the top of the list like any other
@@ -37,6 +42,11 @@ Details:
     group and closed, but the list-page tab and its window stay open,
     so the page simply updates in place with no flicker.  All other
     windows are archived and closed as usual.
+
+  * On completion the status line shows "Saved G groups containing M
+    tabs.", where G counts the groups actually saved and M the tabs
+    recorded in them -- the same numbers the confirmation showed,
+    unless windows or tabs changed while the confirmation was up.
 
 
 ## Export including live

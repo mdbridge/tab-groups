@@ -119,6 +119,10 @@ function render(groups) {
   importLink.addEventListener('click', doImport);
   toolbar.appendChild(importLink);
 
+  const archiveAllLink = makeToolbarLink('archive-all-link', 'Archive all');
+  archiveAllLink.addEventListener('click', doArchiveAll);
+  toolbar.appendChild(archiveAllLink);
+
   root.appendChild(toolbar);
 
   statusEl = document.createElement('div');
@@ -278,6 +282,32 @@ async function doImport() {
 
 function plural(n) {
   return n === 1 ? '' : 's';
+}
+
+// Archives every window (each becoming its own group) after a
+// confirmation showing real counts; this window survives, keeping
+// only the list page.  Recoverable -- every closed tab is in a group
+// -- but confirmed anyway since it visibly closes every window.
+async function doArchiveAll() {
+  clearStatus();
+  try {
+    const preview = await sendToBackground({ action: 'archiveAllPreview' });
+    const question =
+      `Archive all ${preview.windowCount} window${plural(preview.windowCount)}, ` +
+      `saving ${preview.tabCount} tab${plural(preview.tabCount)} ` +
+      `in ${preview.groupCount} group${plural(preview.groupCount)}?`;
+    if (!window.confirm(question)) return;
+    const response = await sendToBackground({ action: 'archiveAll' });
+    render(response.groups);
+    // The response counts what was actually saved, which normally
+    // matches the preview; it differs only if windows or tabs changed
+    // while the confirmation was up.
+    showStatus(
+      `Saved ${response.groupCount} group${plural(response.groupCount)} ` +
+      `containing ${response.tabCount} tab${plural(response.tabCount)}.`);
+  } catch (e) {
+    showError(`Archive all failed: ${e.message}`);
+  }
 }
 
 // Reads a text file the user picks, using a plain file input (works in

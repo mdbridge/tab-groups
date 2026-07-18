@@ -113,7 +113,8 @@ Changes:
         whole.  Popup/DevTools/app windows are untouched.
   * content.js: an "Archive all" link on the toolbar next to Export
     and Import.  On click: fetch the preview, confirm "Archive all N
-    windows (M tabs)?", then send 'archiveAll'.  The page re-renders
+    windows, saving M tabs in G groups?", then send 'archiveAll' and
+    show "Saved G groups containing M tabs.".  The page re-renders
     via the existing storage-change listener.
 
 Tests (red first):
