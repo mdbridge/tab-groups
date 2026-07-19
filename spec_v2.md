@@ -57,10 +57,10 @@ including live".
 Activating this link is like export but also includes tab groups for
 live windows that have not been archived.
 
-That is, the file produced by this link has contents as if you had
-called archive all then export but no archiving actually occurs: the
-live windows are unchanged and the extension's tab groups list is also
-unchanged.
+That is, the file produced by this link has the same groups as if you
+had called archive all then export (the live groups' ordering may
+differ) but no archiving actually occurs: the live windows are
+unchanged and the extension's tab groups list is also unchanged.
 
 This is intended to make backup easier: instead of the user having to do
 archive all, export, then manually recall the tab groups they still want

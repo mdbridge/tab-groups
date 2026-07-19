@@ -115,6 +115,11 @@ function render(groups) {
   exportLink.addEventListener('click', doExport);
   toolbar.appendChild(exportLink);
 
+  const exportLiveLink =
+    makeToolbarLink('export-including-live-link', 'Export including live');
+  exportLiveLink.addEventListener('click', doExportIncludingLive);
+  toolbar.appendChild(exportLiveLink);
+
   const importLink = makeToolbarLink('import-link', 'Import');
   importLink.addEventListener('click', doImport);
   toolbar.appendChild(importLink);
@@ -236,6 +241,24 @@ function doExport() {
     .then((response) => {
       if (response.status === 'exported') {
         showStatus(`Exported ${response.groupCount} group${plural(response.groupCount)}.`);
+      } else {
+        showStatus('Export canceled.');
+      }
+    })
+    .catch((e) => showError(`Export failed: ${e.message}`));
+}
+
+// Exports the stored groups plus a group for each live window -- what
+// archive all followed by export would have written, except nothing is
+// archived or closed: a one-click backup of everything.
+function doExportIncludingLive() {
+  clearStatus();
+  sendToBackground({ action: 'exportIncludingLive' })
+    .then((response) => {
+      if (response.status === 'exported') {
+        showStatus(
+          `Exported ${response.groupCount} group${plural(response.groupCount)} ` +
+          `(including ${response.liveCount} live).`);
       } else {
         showStatus('Export canceled.');
       }

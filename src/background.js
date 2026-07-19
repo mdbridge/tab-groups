@@ -76,22 +76,20 @@ function exportFilename() {
   return `tab-groups-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}-${d.getFullYear()}.txt`;
 }
 
-// Downloads the serialized list.  saveAs shows a native "Save As" dialog
-// in both Chrome and Edge.  The list is downloaded from a blob: URL built
-// in an offscreen document rather than a data: URL: a service worker
-// cannot call URL.createObjectURL, and a data: URL of the whole list
-// overflows Chrome's ~2 MB URL-length limit for large lists.
+// Downloads export text as a file.  saveAs shows a native "Save As"
+// dialog in both Chrome and Edge.  The text is downloaded from a blob:
+// URL built in an offscreen document rather than a data: URL: a service
+// worker cannot call URL.createObjectURL, and a data: URL of the whole
+// list overflows Chrome's ~2 MB URL-length limit for large lists.
 //
 // The offscreen document (and thus the blob) is kept alive until the
 // download reaches a terminal state -- closing it earlier could revoke
 // the blob while a large download is still reading it -- and until no
-// other export is still running.  Returns { status: 'exported',
-// groupCount } or { status: 'canceled' }; failures throw.
+// other export is still running.  Returns 'complete' or 'canceled';
+// failures throw.
 let activeExports = 0;
 
-async function exportDownload() {
-  const groups = await getGroups();
-  const text = serializeGroups(groups);
+async function downloadTextFile(text) {
   activeExports++;
   try {
     const url = await createExportBlobUrl(text);
@@ -103,7 +101,7 @@ async function exportDownload() {
     } catch (e) {
       // Chrome reports a canceled Save As dialog by failing the
       // download() call itself.
-      if (/canceled/i.test(String(e?.message ?? e))) return { status: 'canceled' };
+      if (/canceled/i.test(String(e?.message ?? e))) return 'canceled';
       throw e;
     }
     const state = await waitForDownloadCompletion(id);
@@ -112,14 +110,39 @@ async function exportDownload() {
       // succeeds and the download then ends interrupted with
       // USER_CANCELED.
       const [item] = await chrome.downloads.search({ id });
-      if (item?.error === 'USER_CANCELED') return { status: 'canceled' };
+      if (item?.error === 'USER_CANCELED') return 'canceled';
       throw new Error(`the download was interrupted (${item?.error || 'unknown reason'})`);
     }
-    return { status: 'exported', groupCount: groups.length };
+    return 'complete';
   } finally {
     activeExports--;
     if (activeExports === 0) await closeOffscreenDocument();
   }
+}
+
+// Exports the stored list.  Returns { status: 'exported', groupCount }
+// or { status: 'canceled' }; failures throw.
+async function exportDownload() {
+  const groups = await getGroups();
+  if (await downloadTextFile(serializeGroups(groups)) === 'canceled') {
+    return { status: 'canceled' };
+  }
+  return { status: 'exported', groupCount: groups.length };
+}
+
+// Exports the stored list plus one group per live normal window -- the
+// file archive all followed by export would have produced, except that
+// nothing is archived: the windows and the stored list are untouched.
+// The live groups come first, timestamped with the export time.
+// Returns { status: 'exported', groupCount, liveCount } or
+// { status: 'canceled' }; failures throw.
+async function exportIncludingLiveDownload() {
+  const liveGroups = await collectLiveGroups();
+  const groups = [...liveGroups, ...(await getGroups())];
+  if (await downloadTextFile(serializeGroups(groups)) === 'canceled') {
+    return { status: 'canceled' };
+  }
+  return { status: 'exported', groupCount: groups.length, liveCount: liveGroups.length };
 }
 
 // Waits for the download to reach a terminal state; resolves to
@@ -280,6 +303,9 @@ async function routeMessage(message, sender) {
   if (message.action === 'export') {
     return { ok: true, ...(await exportDownload()) };
   }
+  if (message.action === 'exportIncludingLive') {
+    return { ok: true, ...(await exportIncludingLiveDownload()) };
+  }
   if (message.action === 'parseText') {
     // Parse-only preview, so the list page can confirm an import with
     // real numbers (and any warnings) before anything is replaced.
@@ -417,6 +443,20 @@ function collectTabs(win, listPageUrl) {
   return (win.tabs || [])
     .map((t) => ({ title: t.title, url: t.url || t.pendingUrl || '' }))
     .filter((t) => t.url && !isOwnUrl(t.url, listPageUrl));
+}
+
+// Builds one unsaved group per live normal window, with the same
+// window scope and tab-skipping rules as archive all; a window with
+// nothing recordable contributes no group.  Changes nothing: the
+// groups are timestamped with the current time but never stored.
+// Used by export including live.
+async function collectLiveGroups() {
+  const listPageUrl = await getListPageUrl();
+  const created = Date.now();
+  return (await chrome.windows.getAll({ populate: true }))
+    .filter((w) => w.type === 'normal')
+    .map((w) => ({ created, tabs: collectTabs(w, listPageUrl) }))
+    .filter((g) => g.tabs.length > 0);
 }
 
 // Counts what archive all would touch, changing nothing: every normal
