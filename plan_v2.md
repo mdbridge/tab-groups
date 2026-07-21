@@ -5,55 +5,49 @@ one commit per item.  Items are ordered so that later ones build on
 earlier ones (archive all's window-collection code is reused by export
 including live; favicons, the largest item, come last).
 
-The extension is currently at version 1.1.12.
+The extension is now at version 1.1.17.
 
 
-## Status (as of 2026-07-20)
+## Status (as of 2026-07-20): COMPLETE
 
-  * Items 1-4 are DONE, committed, and manually verified by Mark:
-    item 1 (action button, 1.1.13, commit 4fe0934), item 2 (Discard,
-    1.1.14, commit b9df3cc), item 3 (Archive all, 1.1.15, commit
-    31d7299), item 4 (Export including live plus a Playwright timeout
-    bump 10s -> 30s, 1.1.16, commit 3521a70).  Everything through
-    item 3 is pushed; item 4's commit 3521a70 is NOT yet pushed.
+All five items are DONE -- implemented, tested, reviewed, manually
+verified by Mark, committed one per item, and pushed to origin/master.
+The full suite is 59 passing, and manifest.json is at 1.1.17.
 
-  * Mid-implementation wording changes are reflected in spec_v2.md
-    (kept in sync per workflow): item 3's confirmation became "Archive
-    all N windows, saving M tabs in G groups?" with completion "Saved
-    G groups containing M tabs."; item 4's spec intro was softened to
-    "the same groups as if" (live-group ordering may differ from
-    archive all's).
+  * Item 1 (action button, 1.1.13, commit 4fe0934).
+  * Item 2 (Discard, 1.1.14, commit b9df3cc).
+  * Item 3 (Archive all, 1.1.15, commit 31d7299).
+  * Item 4 (Export including live plus a Playwright timeout bump
+    10s -> 30s, 1.1.16, commit 3521a70).
+  * Item 5 (Favicons, 1.1.17, commit 33406ec).
 
-  * Item 5 (Favicons, -> 1.1.17) is GREEN and manually verified by
-    Mark (including the offline case); the second adversarial review
-    is running, and the commit is pending its outcome plus Mark's
-    final go.  The manifest gained the "favicon" and "unlimitedStorage"
-    permissions; captureIcons runs at the two archive sites
-    (archiveWindow, archiveAll), NOT on export including live; the
-    renderTab wrapper treatment and CSS are ported from
-    ../menu_extension.  Full suite: 59 passing.
+Decisions made during implementation, all reflected in spec_v2.md
+(kept in sync per workflow):
 
-  * Design decision that diverged from this plan's item 5 draft: icons
-    ALWAYS come from Chrome's local _favicon cache (requested at 32px
-    for HiDPI sharpness, displayed at 16px); the tab's own favIconUrl
-    is never read or stored, even when it is already a data: URL,
-    because it is page-controlled and unbounded.  captureIcons is
-    batched (concurrency 16) with a 2s per-fetch timeout so an icon
-    problem can never cost the user an archive.  All of this is
-    recorded in spec_v2.md.  Render cost at ~10,000 tabs was
-    consciously deferred by Mark to a possible later item.
+  * Item 3's confirmation became "Archive all N windows, saving M tabs
+    in G groups?" with completion "Saved G groups containing M tabs.";
+    item 4's spec intro was softened to "the same groups as if"
+    (live-group ordering may differ from archive all's).
 
-  * archive.test.js's two exact-tab assertions now stub self.fetch to
-    reject ONLY /_favicon/ reads (so getListPageUrl's
-    local-config.json read still works and the skip-own-pages intent
-    is preserved); Chrome's _favicon serves a default globe even for
-    unknown pages, which is why the stub is needed.
+  * Item 5 diverged from this plan's draft below: icons ALWAYS come
+    from Chrome's local _favicon cache (requested at 32px for HiDPI
+    sharpness, displayed at 16px); the tab's own favIconUrl is never
+    read or stored, even when it is already a data: URL, because it is
+    page-controlled and unbounded.  captureIcons runs at the two
+    archive sites (archiveWindow, archiveAll) but NOT on export
+    including live, is batched (concurrency 16) with a 2s per-fetch
+    timeout so an icon problem can never cost an archive, and the
+    render wrapper/CSS are ported from ../menu_extension.  Chrome's
+    _favicon serves a default globe even for unknown pages, so
+    archive.test.js's two exact-tab assertions stub self.fetch to
+    reject ONLY /_favicon/ reads (leaving getListPageUrl's
+    local-config.json read working, preserving the skip-own-pages
+    intent).  Render cost at ~10,000 tabs was consciously deferred by
+    Mark to a possible later item.
 
-  * The first item-5 adversarial review was a fresh general-purpose
-    subagent (the earlier item-1..4 reviewer's transcript was gone);
-    its findings are all resolved or, for the two spec-open questions
-    it raised (data:-icon capping, 10k render cost), decided by Mark.
-    Findings through item 4 remain resolved.
+  * Adversarial reviews: all findings through item 5 are resolved, or,
+    for the two spec-open questions item 5's review raised (data:-icon
+    capping, 10k render cost), decided by Mark.
 
 
 ## Per-item workflow
