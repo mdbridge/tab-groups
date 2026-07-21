@@ -120,10 +120,32 @@ is done.  (Import results in tabs without accompanying icons.)
 Capture:
 
   * Capture happens in the background service worker at archive time,
-    with no network fetches: if `tab.favIconUrl` is already a `data:`
-    URL it is stored as-is; otherwise the worker reads Chrome's local
-    favicon cache via the `_favicon` API (this needs the `favicon`
-    permission) at 16px.  Tabs with no icon available simply get none.
+    with no network fetches: the worker reads Chrome's local favicon
+    cache via the `_favicon` API (this needs the `favicon`
+    permission).  Tabs with no icon available simply get none.
+
+  * The cache is the only source; the tab's own `favIconUrl` is never
+    stored, even when it is already a `data:` URL.  That value is
+    page-controlled and unbounded in both size and type, and it would
+    be persisted permanently at whatever size the page chose, whereas
+    the cache always yields a bounded image of a known size.  Since
+    the cache holds the very icon Chrome shows in the tab strip, going
+    through it costs nothing visually.
+
+  * Icons are requested at 32px and displayed at 16px.  Requesting
+    them at the display size instead leaves them visibly soft on HiDPI
+    screens, where 16 CSS pixels are 32 device pixels -- Google's
+    favicon was the case that showed it.  The extra resolution costs
+    only a few KB per icon.
+
+  * In practice `_favicon` rarely refuses: for a page it has never
+    seen it serves Chrome's default globe icon rather than failing, so
+    an archived tab usually ends up with an icon even when its site
+    has none of its own.  This is accepted, not worked around --
+    a globe is what the tab itself showed, and the alternative
+    (recognizing the default image and dropping it) would be brittle.
+    A tab is stored without an `icon` only when the cache read
+    genuinely fails.
 
   * Only the worker touches `_favicon`; the file:/// list page needs no
     new privileges.
@@ -131,10 +153,13 @@ Capture:
 Storage:
 
   * Each archived tab simply carries its own icon as a `data:` URL in
-    an `icon` field next to `title` and `url`.  There is no separate
-    icon table, no deduplication, and no garbage collection: an icon
-    lives and dies with its tab, so recall, discard, and import need
-    no icon-specific code and no cross-references can dangle.
+    an `icon` field next to `title` and `url`.  A tab with no icon
+    omits the field entirely rather than storing a null, so an
+    iconless archived tab is indistinguishable from an imported one.
+    There is no separate icon table, no deduplication, and no garbage
+    collection: an icon lives and dies with its tab, so recall,
+    discard, and import need no icon-specific code and no
+    cross-references can dangle.
 
   * Deduplication was considered and rejected: benchmarking a
     synthetic 10,000-tab list showed the whole-list payload grows from
@@ -149,6 +174,14 @@ Storage:
     the `unlimitedStorage` permission, which removes the quota (local
     storage is then limited only by disk space) and adds no install
     warning.
+
+  * That figure predates the move to 32px capture, which multiplies
+    the per-icon cost by roughly two to four -- call it tens of MB at
+    10,000 tabs rather than ~15 MB.  This is an estimate, not a
+    measurement: the benchmark above was not rerun at 32px.  It does
+    not change the conclusion, since `unlimitedStorage` bounds the
+    list by disk space rather than by quota, and the serialization
+    cost it measured was already negligible next to rendering.
 
 Display:
 

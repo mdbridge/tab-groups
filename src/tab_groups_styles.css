@@ -93,6 +93,9 @@ a:hover {
 }
 
 .tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border-radius: 6px;
   padding: 1px 8px;
   line-height: 1.3;
@@ -102,7 +105,29 @@ a:hover {
   background: #e8f0fe;
 }
 
+/* Fixed-size icon slot, present even when a tab has no icon so that
+   titles stay aligned down the list.  The background makes white and
+   light-colored icons visible; content.js clears it when the slot is
+   empty or the icon fails to load. */
+.tab-favicon-wrapper {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  background: #ffffff;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-favicon {
+  width: 16px;
+  height: 16px;
+}
+
 .tab-title {
+  flex: 1;
+  min-width: 0;
   display: block;
   font-size: 14px;
   font-weight: 500;
@@ -144,6 +169,11 @@ a:hover {
 
   .tab:hover {
     background: #35363b;
+  }
+
+  /* Dark slot so white and light icons stay visible. */
+  .tab-favicon-wrapper {
+    background: #3c4043;
   }
 
   .tab-title {

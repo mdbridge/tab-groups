@@ -423,7 +423,7 @@ async function archiveWindow(windowId) {
   // A window of only our own pages has nothing to record, but is still
   // closed below for consistency.
   if (tabs.length > 0) {
-    await prependGroup({ created: Date.now(), tabs });
+    await prependGroup({ created: Date.now(), tabs: await captureIcons(tabs) });
   }
 
   const normalWindows = (await chrome.windows.getAll()).filter((w) => w.type === 'normal');
@@ -439,10 +439,96 @@ async function archiveWindow(windowId) {
 // url and the real target in pendingUrl.  A tab with neither (rare)
 // is skipped: a blank URL could not be reopened anyway.  This
 // extension's own pages are skipped too.
+//
+// The tab's favIconUrl is deliberately not carried: icons come from
+// the favicon cache keyed by URL (see captureIcon), so a collected
+// tab needs nothing from the live tab beyond its title and URL.
 function collectTabs(win, listPageUrl) {
   return (win.tabs || [])
     .map((t) => ({ title: t.title, url: t.url || t.pendingUrl || '' }))
     .filter((t) => t.url && !isOwnUrl(t.url, listPageUrl));
+}
+
+// How many icon captures may be in flight at once, and how long one
+// cache read may take.  A restored session can put hundreds of tabs in
+// one window; capturing them all simultaneously would hold every
+// decoded icon in memory at once, so the work is done in batches.
+const ICON_CAPTURE_CONCURRENCY = 16;
+const ICON_CAPTURE_TIMEOUT_MS = 2000;
+
+// Icons are requested at twice their 16px display size so they stay
+// sharp on HiDPI screens, where 16 CSS pixels are 32 device pixels and
+// a 16px image would be visibly soft.  The extra resolution costs only
+// a few KB per icon.
+const ICON_CAPTURE_SIZE = 32;
+
+// Turns collected tabs into storable ones: { title, url } plus an
+// `icon` data: URL when one could be captured.  Capture is best
+// effort -- a tab whose icon cannot be had is simply stored without
+// one -- so a slow or missing favicon never costs the user an archive.
+async function captureIcons(tabs) {
+  const stored = [];
+  for (let i = 0; i < tabs.length; i += ICON_CAPTURE_CONCURRENCY) {
+    const batch = tabs.slice(i, i + ICON_CAPTURE_CONCURRENCY);
+    stored.push(...await Promise.all(batch.map(async (t) => {
+      const tab = { title: t.title, url: t.url };
+      const icon = await captureIcon(t.url);
+      if (icon) tab.icon = icon;
+      return tab;
+    })));
+  }
+  return stored;
+}
+
+// Captures the icon for a page URL as a data: URL, or null if there is
+// none to be had.  The icon always comes from Chrome's own favicon
+// cache via _favicon/ (the "favicon" permission): a local read, so
+// archiving works offline and never fetches from the page's site.  The
+// icon is inlined rather than referenced because the page's http(s)
+// favIconUrl would be a dead link once the tab is gone.
+//
+// The tab's own favIconUrl is deliberately not used, even when it is
+// already a data: URL: it is page-controlled and unbounded in both
+// size and type, and it would be stored permanently at whatever size
+// the page chose.  The cache always yields a bounded image, and it
+// holds the very icon Chrome shows in the tab strip, so going through
+// it costs nothing visually.
+async function captureIcon(pageUrl) {
+  try {
+    const url = new URL(chrome.runtime.getURL('/_favicon/'));
+    url.searchParams.set('pageUrl', pageUrl);
+    url.searchParams.set('size', String(ICON_CAPTURE_SIZE));
+    // The read is local, so it should be immediate; the timeout is
+    // only so that a read which never settles cannot stall an archive
+    // (in archive all, every remaining window waits behind it).
+    const response = await fetch(url, { signal: AbortSignal.timeout(ICON_CAPTURE_TIMEOUT_MS) });
+    if (!response.ok) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.length === 0) return null;
+    // Content-Type may carry parameters (e.g., "image/png;charset=..."),
+    // which would make the data: URL malformed, and on an unexpected
+    // error path may not name an image at all.  Since the result is
+    // persisted forever, keep only a bare image/* media type.  Lower-
+    // cased so a stray "IMAGE/PNG" is recognized rather than replaced.
+    const media =
+      (response.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+    const type = media.startsWith('image/') ? media : 'image/png';
+    return `data:${type};base64,${base64FromBytes(bytes)}`;
+  } catch {
+    // Best effort: no icon is a fine outcome (see captureIcons).
+    return null;
+  }
+}
+
+// btoa needs a binary string; building it in chunks keeps the argument
+// list to String.fromCharCode within the engine's limit.
+function base64FromBytes(bytes) {
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 // Builds one unsaved group per live normal window, with the same
@@ -450,6 +536,9 @@ function collectTabs(win, listPageUrl) {
 // nothing recordable contributes no group.  Changes nothing: the
 // groups are timestamped with the current time but never stored.
 // Used by export including live.
+//
+// No icons here: exports never carry them, and collectTabs alone
+// never produces one -- only captureIcons does, and it is not called.
 async function collectLiveGroups() {
   const listPageUrl = await getListPageUrl();
   const created = Date.now();
@@ -518,7 +607,7 @@ async function archiveAll(senderTabId) {
     }
     const tabs = collectTabs(win, listPageUrl);
     if (tabs.length > 0) {
-      await prependGroup({ created: Date.now(), tabs });
+      await prependGroup({ created: Date.now(), tabs: await captureIcons(tabs) });
       groupCount++;
       tabCount += tabs.length;
     }

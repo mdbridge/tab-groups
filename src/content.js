@@ -353,6 +353,25 @@ function renderTab(tab) {
   const li = document.createElement('li');
   li.className = 'tab';
 
+  // The wrapper is always present, so titles line up whether or not a
+  // tab has an icon.  It carries an opaque background (dark in dark
+  // mode) to keep light icons visible, but goes transparent when there
+  // is no icon, or the stored one fails to decode -- an empty square
+  // reads better than a broken-image glyph on white.
+  const wrapper = document.createElement('div');
+  wrapper.className = 'tab-favicon-wrapper';
+  if (tab.icon) {
+    const img = document.createElement('img');
+    img.className = 'tab-favicon';
+    img.alt = ''; // decorative: the title beside it already names the tab
+    img.onerror = () => { wrapper.style.background = 'transparent'; };
+    img.src = tab.icon; // set last, so the handler cannot be missed
+    wrapper.appendChild(img);
+  } else {
+    wrapper.style.background = 'transparent';
+  }
+  li.appendChild(wrapper);
+
   const title = document.createElement('span');
   title.className = 'tab-title';
   title.textContent = tab.title || '(untitled)';

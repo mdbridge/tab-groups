@@ -8,7 +8,7 @@ including live; favicons, the largest item, come last).
 The extension is currently at version 1.1.12.
 
 
-## Status (as of 2026-07-19)
+## Status (as of 2026-07-20)
 
   * Items 1-4 are DONE, committed, and manually verified by Mark:
     item 1 (action button, 1.1.13, commit 4fe0934), item 2 (Discard,
@@ -24,36 +24,36 @@ The extension is currently at version 1.1.12.
     "the same groups as if" (live-group ordering may differ from
     archive all's).
 
-  * Item 5 (Favicons, -> 1.1.17) is IN PROGRESS, at the start of the
-    red step: tests/favicon.test.js is written (uncommitted) but has
-    not yet been run red, and no implementation exists yet.  The
-    tests cover: data:-favIconUrl persisted as the tab's `icon` on
-    archive (via the stubbed-chrome.windows.get pattern from
-    archive.test.js, with self.fetch stubbed to reject so the
-    _favicon fallback deterministically fails); the _favicon path
-    with self.fetch stubbed to return known bytes (asserting the
-    /_favicon/?pageUrl=...&size=16 URL and the base64 data: URL
-    "AQID"); list-page rendering (.tab-favicon-wrapper divs, 16px
-    img.tab-favicon inside, transparent wrapper when iconless);
-    broken-icon img error turning the wrapper transparent; and
-    serializeGroups/parseGroups omitting icons.  Next steps: run
-    those tests red, then implement (manifest "favicon" +
-    "unlimitedStorage" permissions; collectTabs gains favIconUrl and
-    a captureIcons step at the two archive call sites -- NOT in
-    export including live; renderTab wrapper treatment copied from
-    ../menu_extension; CSS), bump to 1.1.17, review, hand to Mark.
+  * Item 5 (Favicons, -> 1.1.17) is GREEN and manually verified by
+    Mark (including the offline case); the second adversarial review
+    is running, and the commit is pending its outcome plus Mark's
+    final go.  The manifest gained the "favicon" and "unlimitedStorage"
+    permissions; captureIcons runs at the two archive sites
+    (archiveWindow, archiveAll), NOT on export including live; the
+    renderTab wrapper treatment and CSS are ported from
+    ../menu_extension.  Full suite: 59 passing.
 
-  * Beware: existing archive.test.js assertions compare stored tabs
-    with toEqual({ title, url }); once capture is implemented these
-    will see live _favicon results (Chrome may serve a default icon
-    even for unknown pages) and need self.fetch stubbed to reject --
-    or equivalent -- to stay deterministic; keep their original
-    intent (skip rules) intact when adjusting.
+  * Design decision that diverged from this plan's item 5 draft: icons
+    ALWAYS come from Chrome's local _favicon cache (requested at 32px
+    for HiDPI sharpness, displayed at 16px); the tab's own favIconUrl
+    is never read or stored, even when it is already a data: URL,
+    because it is page-controlled and unbounded.  captureIcons is
+    batched (concurrency 16) with a 2s per-fetch timeout so an icon
+    problem can never cost the user an archive.  All of this is
+    recorded in spec_v2.md.  Render cost at ~10,000 tabs was
+    consciously deferred by Mark to a possible later item.
 
-  * The adversarial reviews were done by resuming one subagent
-    ("Adversarial review of item 3", id a5ae85deccfa98ae5) with
-    static-review-only instructions; findings through item 4 are all
-    resolved.
+  * archive.test.js's two exact-tab assertions now stub self.fetch to
+    reject ONLY /_favicon/ reads (so getListPageUrl's
+    local-config.json read still works and the skip-own-pages intent
+    is preserved); Chrome's _favicon serves a default globe even for
+    unknown pages, which is why the stub is needed.
+
+  * The first item-5 adversarial review was a fresh general-purpose
+    subagent (the earlier item-1..4 reviewer's transcript was gone);
+    its findings are all resolved or, for the two spec-open questions
+    it raised (data:-icon capping, 10k render cost), decided by Mark.
+    Findings through item 4 remain resolved.
 
 
 ## Per-item workflow
@@ -212,6 +212,11 @@ changed in the browser; also try canceling the Save As dialog.
 ## Item 5: Favicons  (-> 1.1.17)
 
 Spec section: "Adding favicons to tab groups list".
+
+NOTE: the draft below was superseded during implementation -- icons
+come only from the _favicon cache (at 32px), never from the tab's own
+favIconUrl.  See the Status block above and spec_v2.md for what was
+actually built; the steps here are kept as the original plan of record.
 
 Changes:
 

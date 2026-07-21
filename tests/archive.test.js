@@ -1,5 +1,14 @@
 import { test, expect } from './fixtures.js';
 
+// Archiving captures each tab's icon from Chrome's favicon cache,
+// which serves a default icon even for pages it has never seen -- so
+// tabs here would otherwise carry an unpredictable `icon`.  These
+// tests are about which tabs get recorded, not about icons (that is
+// favicon.test.js), so the two that compare tabs exactly fail just the
+// cache read and expect iconless tabs.  They stub only _favicon reads:
+// getListPageUrl fetches local-config.json, and failing that would
+// quietly disable the skip-own-pages rule the first test checks.
+
 // Archiving records a window's tabs (in order), skips this extension's
 // own pages, stores a group, and closes the window.  Here there is also
 // the default context window, so the archived window is not the last
@@ -30,7 +39,16 @@ test('archiving a window stores its tabs in order, skips own pages, closes it', 
       .map((t) => ({ title: t.title, url: t.url }));
 
     await saveGroups([]);
-    await archiveWindow(win.id);
+    const origFetch = self.fetch;
+    self.fetch = (input, init) =>
+      String(input?.url ?? input).includes('/_favicon/')
+        ? Promise.reject(new Error('no favicon cache in tests'))
+        : origFetch.call(self, input, init);
+    try {
+      await archiveWindow(win.id);
+    } finally {
+      self.fetch = origFetch;
+    }
 
     let windowGone = false;
     try {
@@ -60,6 +78,7 @@ test('archiving records pendingUrl for tabs that have not committed', async ({
     const origGet = chrome.windows.get;
     const origGetAll = chrome.windows.getAll;
     const origRemove = chrome.windows.remove;
+    const origFetch = self.fetch;
     chrome.windows.get = () =>
       Promise.resolve({
         id: 999,
@@ -72,12 +91,17 @@ test('archiving records pendingUrl for tabs that have not committed', async ({
     chrome.windows.getAll = () =>
       Promise.resolve([{ type: 'normal' }, { type: 'normal' }]);
     chrome.windows.remove = () => Promise.resolve();
+    self.fetch = (input, init) =>
+      String(input?.url ?? input).includes('/_favicon/')
+        ? Promise.reject(new Error('no favicon cache in tests'))
+        : origFetch.call(self, input, init);
     try {
       await archiveWindow(999);
     } finally {
       chrome.windows.get = origGet;
       chrome.windows.getAll = origGetAll;
       chrome.windows.remove = origRemove;
+      self.fetch = origFetch;
     }
     return getGroups();
   });
